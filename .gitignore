@@ -1,0 +1,42 @@
+# Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Output directories
+output/
+backend/bin/output/
+
+# Build artifacts
+backend/server
+backend/bin/
+
+# Tools (distribute via Release)
+tools/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Go
+backend/vendor/
+
+# Internal development documents
+IMPROVEMENT-PLAN-*.md
+REFACTOR-PLAN-*.md
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.bak

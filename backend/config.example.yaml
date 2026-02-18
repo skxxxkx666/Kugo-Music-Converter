@@ -1,0 +1,5 @@
+addr: ":8080"
+ffmpeg_bin: "/usr/bin/ffmpeg"
+max_file_size: 1024000000  # 1000MB
+max_files: 50
+parse_form_memory: 33554432  # 32MB

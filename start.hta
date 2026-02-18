@@ -1,0 +1,172 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+  <title>酷狗音乐转换工具 v0.2.2</title>
+  <meta charset="utf-8">
+  <HTA:APPLICATION
+    ID="KugoConverter"
+    APPLICATIONNAME="酷狗音乐转换工具"
+    BORDER="thin"
+    BORDERSTYLE="normal"
+    INNERBORDER="no"
+    MAXIMIZEBUTTON="no"
+    MINIMIZEBUTTON="yes"
+    SCROLL="no"
+    SINGLEINSTANCE="yes"
+    WINDOWSTATE="normal"
+  />
+  <style>
+    body {
+      font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #e2e8f0;
+      margin: 0;
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      box-sizing: border-box;
+    }
+    h1 { font-size: 24px; margin-bottom: 8px; color: #38bdf8; }
+    .subtitle { color: #94a3b8; margin-bottom: 32px; font-size: 14px; }
+    #status {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 16px 24px;
+      min-width: 420px;
+      text-align: center;
+      font-size: 14px;
+      line-height: 1.8;
+    }
+    .success { color: #4ade80; }
+    .error { color: #f87171; }
+    .warn { color: #fbbf24; }
+    .info { color: #94a3b8; }
+    .btn {
+      margin-top: 20px;
+      padding: 10px 32px;
+      background: #dc2626;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .btn:hover { background: #b91c1c; }
+  </style>
+</head>
+<body>
+  <h1>酷狗音乐转换工具 v0.2.2</h1>
+  <p class="subtitle">支持 KGG / KGM / KGMA / VPR / NCM 转换</p>
+  <div id="status">正在启动服务...</div>
+  <button id="stopBtn" class="btn" style="display:none" onclick="stopServer()">停止服务并退出</button>
+
+  <script language="javascript">
+    var shell = new ActiveXObject("WScript.Shell");
+    var fso = new ActiveXObject("Scripting.FileSystemObject");
+    var appPath = unescape(location.pathname.replace(/\//g, "\\")).replace(/^\\/, "");
+    var appDir = fso.GetParentFolderName(appPath);
+
+    var exePath = appDir + "\\backend\\bin\\kugo-converter.exe";
+    var ffmpegPath = appDir + "\\tools\\ffmpeg.exe";
+    var port = 8080;
+
+    function setStatus(lines) {
+      document.getElementById("status").innerHTML = lines.join("");
+    }
+
+    function isPortBusy() {
+      try {
+        var cmd = 'cmd /c netstat -ano | findstr ":' + port + ' " | findstr LISTENING';
+        var exec = shell.Exec(cmd);
+        var output = exec.StdOut.ReadAll();
+        return output && output.indexOf(':' + port) >= 0;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function killPort(p) {
+      try {
+        var cmd = 'cmd /c "for /f "tokens=5" %a in (\'netstat -ano ^| findstr :' + p + ' ^| findstr LISTENING\') do taskkill /F /PID %a"';
+        shell.Run(cmd, 0, true);
+      } catch (e) {}
+    }
+
+    function sleep(ms) {
+      var end = new Date().getTime() + ms;
+      while (new Date().getTime() < end) {}
+    }
+
+    function startup() {
+      window.resizeTo(560, 420);
+
+      if (!fso.FileExists(exePath)) {
+        setStatus([
+          '<div class="error">未找到 kugo-converter.exe</div>',
+          '<div class="info">预期路径：backend\\bin\\</div>'
+        ]);
+        return;
+      }
+
+      if (!fso.FileExists(ffmpegPath)) {
+        setStatus([
+          '<div class="warn">警告：未找到 ffmpeg.exe</div>',
+          '<div class="info">转码功能可能不可用</div>'
+        ]);
+      }
+
+      if (isPortBusy()) {
+        setStatus([
+          '<div class="warn">端口 ' + port + ' 被占用，正在强制释放...</div>'
+        ]);
+        killPort(port);
+        sleep(1000);
+        if (isPortBusy()) {
+          setStatus([
+            '<div class="error">端口 ' + port + ' 仍被占用，无法释放。</div>',
+            '<div class="info">请手动关闭占用该端口的程序后重试。</div>'
+          ]);
+          return;
+        }
+        setStatus([
+          '<div class="success">端口已释放，正在启动服务...</div>'
+        ]);
+      }
+
+      var cmd = '"' + exePath + '" --addr :' + port + ' --ffmpeg "' + ffmpegPath + '"';
+      shell.Run(cmd, 0, false);
+
+      setStatus([
+        '<div class="success">服务已启动</div>',
+        '<div class="info">地址：http://localhost:' + port + '</div>',
+        '<div class="info">正在打开浏览器...</div>'
+      ]);
+      document.getElementById("stopBtn").style.display = "inline-block";
+
+      window.setTimeout(function() {
+        shell.Run('cmd /c start http://localhost:' + port, 0, false);
+      }, 1500);
+    }
+
+    function stopServer() {
+      try {
+        shell.Run('taskkill /F /IM kugo-converter.exe', 0, true);
+      } catch (e) {}
+      window.close();
+    }
+
+    window.onbeforeunload = function() {
+      try {
+        shell.Run('taskkill /F /IM kugo-converter.exe', 0, true);
+      } catch (e) {}
+    };
+
+    startup();
+  </script>
+</body>
+</html>
+
