@@ -73,7 +73,6 @@
     var exePath = appDir + "\\backend\\bin\\kugo-converter.exe";
     var ffmpegPath = appDir + "\\tools\\ffmpeg.exe";
     var port = 8080;
-    var serverExec = null;
     var serverPid = 0;
 
     function setStatus(lines) {
@@ -189,8 +188,19 @@
 
       var cmd = '"' + exePath + '" --addr :' + port + ' --ffmpeg "' + ffmpegPath + '"';
       try {
-        serverExec = shell.Exec(cmd);
-        serverPid = serverExec.ProcessID;
+        var wmi = GetObject("winmgmts:\\\\.\\root\\cimv2");
+        var startupCfg = wmi.Get("Win32_ProcessStartup").SpawnInstance_();
+        startupCfg.ShowWindow = 0;
+        var procClass = wmi.Get("Win32_Process");
+        var inParams = procClass.Methods_("Create").InParameters.SpawnInstance_();
+        inParams.CommandLine = cmd;
+        inParams.CurrentDirectory = appDir;
+        inParams.ProcessStartupInformation = startupCfg;
+        var outParams = procClass.ExecMethod_("Create", inParams);
+        if (outParams.ReturnValue !== 0) {
+          throw new Error("进程创建失败 (返回码: " + outParams.ReturnValue + ")");
+        }
+        serverPid = outParams.ProcessId;
       } catch (e) {
         setStatus([
           '<div class="error">启动服务失败：' + e.message + '</div>'
@@ -216,7 +226,6 @@
           shell.Run('taskkill /F /PID ' + serverPid, 0, true);
         }
       } catch (e) {}
-      serverExec = null;
       serverPid = 0;
       window.close();
     }
@@ -227,7 +236,6 @@
           shell.Run('taskkill /F /PID ' + serverPid, 0, true);
         }
       } catch (e) {}
-      serverExec = null;
       serverPid = 0;
     };
 
