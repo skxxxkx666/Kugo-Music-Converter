@@ -1,7 +1,7 @@
 ﻿import { readSseStream } from "./modules/sse.js";
 import { createScanner } from "./modules/scanner.js";
 
-const APP_VERSION = "v0.2.2";
+const APP_VERSION = "v0.2.2.1";
 const HISTORY_KEY = "kgg-converter-history";
 const THEME_KEY = "kgg-converter-theme";
 const SUPPORTED_EXTS = [".kgg", ".kgm", ".kgma", ".vpr", ".ncm"];

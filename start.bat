@@ -1,11 +1,11 @@
 @echo off
-setlocal EnableExtensions DisableDelayedExpansion
+setlocal EnableExtensions EnableDelayedExpansion
 chcp 936 >nul
 
-title Kugo Music Converter v0.2.2
+title Kugo Music Converter v0.2.2.1
 
 echo ======================================
-echo   Kugo Music Converter v0.2.2
+echo   Kugo Music Converter v0.2.2.1
 echo   Support KGG/KGM/KGMA/VPR/NCM
 echo ======================================
 echo.
@@ -43,8 +43,19 @@ exit /b %EXIT_CODE%
 set "BUSY="
 for /f "tokens=5" %%A in ('netstat -ano ^| findstr ":8080 " ^| findstr "LISTENING"') do (
     set "BUSY=1"
-    echo [WARN] Port 8080 occupied. Killing PID %%A ...
-    taskkill /F /PID %%A >nul 2>&1
+    set "SAFE_KILL="
+    for /f "tokens=1 delims=," %%N in ('tasklist /FI "PID eq %%A" /FO CSV /NH 2^>nul') do (
+        set "PROC_NAME=%%~N"
+    )
+    if /i "!PROC_NAME!"=="kugo-converter.exe" (
+        echo [WARN] Port 8080 occupied by kugo-converter.exe ^(PID %%A^). Killing...
+        taskkill /F /PID %%A >nul 2>&1
+        set "SAFE_KILL=1"
+    ) else (
+        echo [ERROR] Port 8080 occupied by !PROC_NAME! ^(PID %%A^)
+        echo [ERROR] Will not kill non-project process. Please close it manually.
+        exit /b 1
+    )
 )
 
 if not defined BUSY goto :eof
