@@ -64,7 +64,7 @@ func runPowershell(command string) (string, error) {
 
 func (h *ConvertHandler) HandlePickDirectory(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		writeError(w, http.StatusMethodNotAllowed, NewAppError("ERR_UNKNOWN", "method not allowed", nil))
+		writeMethodNotAllowed(w, http.MethodPost)
 		return
 	}
 	if runtime.GOOS != "windows" {
@@ -88,7 +88,7 @@ func (h *ConvertHandler) HandlePickDirectory(w http.ResponseWriter, r *http.Requ
 
 func (h *ConvertHandler) HandlePickDBFile(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		writeError(w, http.StatusMethodNotAllowed, NewAppError("ERR_UNKNOWN", "method not allowed", nil))
+		writeMethodNotAllowed(w, http.MethodPost)
 		return
 	}
 	if runtime.GOOS != "windows" {
@@ -136,7 +136,7 @@ func (h *ConvertHandler) HandlePickDBFile(w http.ResponseWriter, r *http.Request
 
 func (h *ConvertHandler) HandleOpenFolder(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		writeError(w, http.StatusMethodNotAllowed, NewAppError("ERR_UNKNOWN", "method not allowed", nil))
+		writeMethodNotAllowed(w, http.MethodPost)
 		return
 	}
 	if runtime.GOOS != "windows" {
@@ -169,7 +169,9 @@ func (h *ConvertHandler) HandleOpenFolder(w http.ResponseWriter, r *http.Request
 	}
 
 	cmd := exec.Command("explorer.exe", absPath)
-	_ = cmd.Start()
+	if err := cmd.Start(); err == nil {
+		go func() { _ = cmd.Wait() }()
+	}
 
 	writeJSON(w, http.StatusOK, map[string]any{"path": absPath, "opened": true})
 }

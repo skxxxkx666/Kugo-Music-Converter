@@ -76,6 +76,7 @@ func (s *DecryptService) decryptKgmPureGo(inPath string) (outPath string, cleanu
 		n, e := dec.Read(buf)
 		if n > 0 {
 			if _, werr := out.Write(buf[:n]); werr != nil {
+				_ = os.Remove(outPath)
 				return "", func() {}, werr
 			}
 		}
@@ -127,6 +128,7 @@ func (s *DecryptService) decryptNcmPureGo(inPath string) (outPath string, cleanu
 		n, e := dec.Read(buf)
 		if n > 0 {
 			if _, werr := out.Write(buf[:n]); werr != nil {
+				_ = os.Remove(outPath)
 				return "", func() {}, werr
 			}
 		}
@@ -159,10 +161,10 @@ func (s *DecryptService) decryptKggWithProvider(inPath string, provider kgg.KeyP
 	if err != nil {
 		return "", func() {}, err
 	}
-	defer f.Close()
 
 	dec, err := kgg.NewDecoder(&kgg.DecoderParams{Reader: f, Path: inPath}, provider)
 	if err != nil {
+		_ = f.Close()
 		switch {
 		case errors.Is(err, kgg.ErrUnsupportedMode):
 			return "", func() {}, fmt.Errorf("%w: %v", ErrUnsupportedInput, err)
@@ -172,6 +174,7 @@ func (s *DecryptService) decryptKggWithProvider(inPath string, provider kgg.KeyP
 			return "", func() {}, fmt.Errorf("%w: %v", ErrDecryptProcess, err)
 		}
 	}
+	// kgg.Decoder owns the underlying file and closes it.
 	defer dec.Close()
 
 	outPath = filepath.Join(os.TempDir(), fmt.Sprintf("kgg_dec_%s.bin", utils.RandHex(8)))
@@ -186,6 +189,7 @@ func (s *DecryptService) decryptKggWithProvider(inPath string, provider kgg.KeyP
 		n, e := dec.Read(buf)
 		if n > 0 {
 			if _, werr := out.Write(buf[:n]); werr != nil {
+				_ = os.Remove(outPath)
 				return "", func() {}, werr
 			}
 		}

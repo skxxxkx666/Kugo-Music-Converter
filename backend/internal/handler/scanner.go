@@ -18,7 +18,7 @@ type scanRequest struct {
 
 func (h *ConvertHandler) HandleScanFolders(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		writeError(w, http.StatusMethodNotAllowed, NewAppError("ERR_UNKNOWN", "method not allowed", nil))
+		writeMethodNotAllowed(w, http.MethodPost)
 		return
 	}
 

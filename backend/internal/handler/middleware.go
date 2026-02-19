@@ -29,7 +29,16 @@ func (w *statusResponseWriter) Write(p []byte) (int, error) {
 	return n, err
 }
 
-// logRequest 记录请求、状态码与耗时。
+func (w *statusResponseWriter) Flush() {
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+func (w *statusResponseWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
+}
+
 func logRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -53,7 +62,6 @@ func logRequest(next http.Handler) http.Handler {
 	})
 }
 
-// getClientIP 尝试从 X-Forwarded-For, X-Real-IP 获取真实客户端 IP。
 func getClientIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 		parts := strings.Split(xff, ",")

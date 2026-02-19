@@ -22,7 +22,7 @@ type validateDBResponse struct {
 
 func (h *ConvertHandler) HandleValidateDBPath(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		writeError(w, http.StatusMethodNotAllowed, NewAppError("ERR_UNKNOWN", "method not allowed", nil))
+		writeMethodNotAllowed(w, http.MethodPost)
 		return
 	}
 
@@ -48,7 +48,7 @@ func (h *ConvertHandler) HandleValidateDBPath(w http.ResponseWriter, r *http.Req
 
 func (h *ConvertHandler) HandleRedetectDB(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		writeError(w, http.StatusMethodNotAllowed, NewAppError("ERR_UNKNOWN", "method not allowed", nil))
+		writeMethodNotAllowed(w, http.MethodPost)
 		return
 	}
 
@@ -66,7 +66,7 @@ func (h *ConvertHandler) HandleRedetectDB(w http.ResponseWriter, r *http.Request
 
 func (h *ConvertHandler) HandleUploadDB(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		writeError(w, http.StatusMethodNotAllowed, NewAppError("ERR_UNKNOWN", "method not allowed", nil))
+		writeMethodNotAllowed(w, http.MethodPost)
 		return
 	}
 

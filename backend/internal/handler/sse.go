@@ -6,15 +6,21 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"kugo-music-converter/internal/logger"
 )
 
 const sseWriteTimeout = 10 * time.Second
 
 func writeSSEEvent(w http.ResponseWriter, event string, payload any) error {
 	ctrl := http.NewResponseController(w)
-	_ = ctrl.SetWriteDeadline(time.Now().Add(sseWriteTimeout))
+	if err := ctrl.SetWriteDeadline(time.Now().Add(sseWriteTimeout)); err != nil {
+		logger.Debugf("set SSE write deadline failed: %v", err)
+	}
 	defer func() {
-		_ = ctrl.SetWriteDeadline(time.Time{})
+		if err := ctrl.SetWriteDeadline(time.Time{}); err != nil {
+			logger.Debugf("reset SSE write deadline failed: %v", err)
+		}
 	}()
 
 	data, err := json.Marshal(payload)
@@ -35,7 +41,7 @@ func writeSSEEvent(w http.ResponseWriter, event string, payload any) error {
 
 func (h *ConvertHandler) HandleConvertStream(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		writeError(w, http.StatusMethodNotAllowed, NewAppError("ERR_UNKNOWN", "method not allowed", nil))
+		writeMethodNotAllowed(w, http.MethodPost)
 		return
 	}
 	if missing := h.runtimeMissingTools(); len(missing) > 0 {

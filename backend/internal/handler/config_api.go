@@ -21,7 +21,7 @@ type configResp struct {
 
 func (h *ConvertHandler) HandleConfig(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		writeError(w, http.StatusMethodNotAllowed, NewAppError("ERR_UNKNOWN", "method not allowed", nil))
+		writeMethodNotAllowed(w, http.MethodGet)
 		return
 	}
 

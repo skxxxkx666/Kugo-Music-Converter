@@ -33,6 +33,12 @@ backend/vendor/
 # Internal development documents
 IMPROVEMENT-PLAN-*.md
 REFACTOR-PLAN-*.md
+BUGFIX-PLAN-*.md
+PREVIEW-PLAN-*.md
+
+# Release archives
+*.zip
+*.tar.gz
 
 # Logs
 *.log

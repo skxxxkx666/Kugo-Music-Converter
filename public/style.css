@@ -338,13 +338,14 @@ button:disabled {
   height: 28px;
   background: color-mix(in srgb, var(--border) 60%, transparent);
   border-radius: 14px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .progress-bar {
   height: 100%;
   width: 0;
-  min-width: 48px;
+  min-width: fit-content;
+  padding: 0 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -605,6 +606,33 @@ button:disabled {
   text-align: center;
   color: var(--muted);
   font-size: 13px;
+}
+
+@supports not (color: color-mix(in srgb, #000 50%, #fff)) {
+  .version-badge {
+    background: rgba(15, 118, 110, 0.15);
+    border-color: rgba(15, 118, 110, 0.4);
+  }
+
+  .drop-zone.drag-over {
+    background: rgba(20, 184, 166, 0.12);
+  }
+
+  .progress-bar-container {
+    background: rgba(148, 163, 184, 0.35);
+  }
+
+  .file-preview-item,
+  .file-list-item,
+  .failed-item,
+  .history-item,
+  .folder-header {
+    border-bottom-color: rgba(148, 163, 184, 0.35);
+  }
+
+  .file-name-item {
+    border-bottom-color: rgba(148, 163, 184, 0.2);
+  }
 }
 
 @media (max-width: 860px) {

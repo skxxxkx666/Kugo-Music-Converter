@@ -59,7 +59,7 @@ type errorMeta struct {
 }
 
 var errorCatalog = map[string]errorMeta{
-	ErrDBNotFound:        {"未找到 KGMusicV3.db 数据库文件。", "仅 KGG 格式需要数据库，请先配置 KGMusicV3.db。", "fatal"},
+	ErrDBNotFound:        {"未找到 KGMusicV3.db 数据库文件。", "KGG 格式转换需要数据库，请先配置 KGMusicV3.db。", "fatal"},
 	ErrDecryptFailed:     {"解密失败，未生成可用音频文件。", "请确认输入文件完整可用后重试。", "error"},
 	ErrDecryptKeyExpired: {"解密失败，密钥可能已失效。", "请先在酷狗客户端播放一次该歌曲后重试。", "error"},
 	ErrTranscodeFailed:   {"音频转码失败。", "请确认 ffmpeg 可用，或尝试更换输入文件后重试。", "error"},
@@ -126,4 +126,11 @@ func writeError(w http.ResponseWriter, status int, err error) {
 		Suggestion:  appErr.Suggestion,
 		Severity:    appErr.Severity,
 	})
+}
+
+func writeMethodNotAllowed(w http.ResponseWriter, allow string) {
+	if allow != "" {
+		w.Header().Set("Allow", allow)
+	}
+	writeError(w, http.StatusMethodNotAllowed, NewAppError("ERR_UNKNOWN", "method not allowed", nil))
 }

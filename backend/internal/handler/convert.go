@@ -62,7 +62,7 @@ func NewConvertHandler(cfg *config.Config) *ConvertHandler {
 
 	if st := service.DetectKGMusicDB(baseDir); st.Found {
 		if err := h.loadDBByPath(st.Path, st.Source); err != nil {
-			logger.Warnf("鑷姩鍔犺浇 KGMusicV3.db 澶辫触: %v", err)
+			logger.Warnf("自动加载 KGMusicV3.db 失败: %v", err)
 		}
 	}
 
@@ -93,10 +93,10 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 	fileServer := http.FileServer(http.Dir(h.publicDir))
 	mux.Handle("/", fileServer)
 
-	logger.Infof("鍚姩鏈嶅姟: addr=%s", cfg.Addr)
-	logger.Infof("闈欐€佺洰褰? %s", h.publicDir)
-	logger.Infof("FFmpeg 璺緞: %s", h.ffmpegPath)
-	logger.Infof("榛樿杈撳嚭鐩綍: %s", h.defaultOutputDir)
+	logger.Infof("启动服务: addr=%s", cfg.Addr)
+	logger.Infof("静态目录: %s", h.publicDir)
+	logger.Infof("FFmpeg 路径: %s", h.ffmpegPath)
+	logger.Infof("默认输出目录: %s", h.defaultOutputDir)
 
 	srv := &http.Server{
 		Addr:              cfg.Addr,
@@ -386,7 +386,7 @@ func (h *ConvertHandler) getDBForRequest(requestPath string) (string, string, ma
 
 	status := service.DetectKGMusicDB(h.baseDir)
 	if !status.Found {
-		return "", "", nil, NewAppError(ErrDBNotFound, "鏈娴嬪埌 KGMusicV3.db", nil)
+		return "", "", nil, NewAppError(ErrDBNotFound, "未检测到 KGMusicV3.db", nil)
 	}
 	if err := h.loadDBByPath(status.Path, status.Source); err != nil {
 		return "", "", nil, NewAppError(ErrDBNotFound, err.Error(), nil)

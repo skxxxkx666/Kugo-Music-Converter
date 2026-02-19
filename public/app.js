@@ -20,6 +20,7 @@ const LOG_LEVEL_LABELS = {
   warn: "WARN",
   info: "INFO"
 };
+const MAX_LOG_ENTRIES = 500;
 
 const fileInput = document.getElementById("kggFiles");
 const pickFilesBtn = document.getElementById("pickFilesBtn");
@@ -120,6 +121,9 @@ function appendLog(level, message) {
   const label = LOG_LEVEL_LABELS[level] || "INFO";
   line.textContent = `[${now}] [${label}] ${message}`;
   logBox.appendChild(line);
+  while (logBox.children.length > MAX_LOG_ENTRIES) {
+    logBox.removeChild(logBox.firstChild);
+  }
   logBox.scrollTop = logBox.scrollHeight;
 }
 
@@ -189,8 +193,17 @@ function updateProgressBar(percent, hasError = false) {
 }
 
 function extBadgeClass(ext) {
-  const normalized = String(ext || "").replace(".", "").toLowerCase();
+  const normalized = String(ext || "")
+    .replace(".", "")
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, "");
   return `file-ext-badge ext-${normalized || "unknown"}`;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = String(str ?? "");
+  return div.innerHTML;
 }
 
 async function fetchJson(url, options = {}) {
@@ -242,12 +255,16 @@ function renderFilePreview() {
   if (items.length === 0) return;
 
   items.forEach((item) => {
+    const extText = (item.ext || ".").replace(".", "").toUpperCase();
+    const titleText = item.source === "path" ? item.fullPath : item.name;
+    const prefix = item.source === "path" ? "[路径]" : "[上传]";
+    const displayName = `${prefix} ${item.name}`;
     const row = document.createElement("div");
     row.className = "file-preview-item";
     row.innerHTML = `
-      <span class="${extBadgeClass(item.ext)}">${(item.ext || ".").replace(".", "").toUpperCase()}</span>
-      <span class="file-preview-name" title="${item.source === "path" ? item.fullPath : item.name}">
-        ${item.source === "path" ? "[路径]" : "[上传]"} ${item.name}
+      <span class="${extBadgeClass(item.ext)}">${escapeHtml(extText)}</span>
+      <span class="file-preview-name" title="${escapeHtml(titleText)}">
+        ${escapeHtml(displayName)}
       </span>
       <span class="file-preview-size">${formatBytes(item.size)}</span>
       <button class="btn-remove" data-source="${item.source}" data-index="${item.index}" title="移除">x</button>
@@ -378,9 +395,10 @@ function renderHistory() {
     const row = document.createElement("div");
     row.className = "history-item";
     const timeText = new Date(item.timestamp).toLocaleString("zh-CN", { hour12: false });
+    const outputFormat = String(item.outputFormat || "").toUpperCase();
     row.innerHTML = `
-      <div class="history-main">${timeText}</div>
-      <div class="history-sub">文件 ${item.total} | 成功 ${item.success} | 失败 ${item.failed} | ${formatDuration(item.durationMs)} | ${String(item.outputFormat || "").toUpperCase()}</div>
+      <div class="history-main">${escapeHtml(timeText)}</div>
+      <div class="history-sub">文件 ${escapeHtml(item.total)} | 成功 ${escapeHtml(item.success)} | 失败 ${escapeHtml(item.failed)} | ${escapeHtml(formatDuration(item.durationMs))} | ${escapeHtml(outputFormat)}</div>
     `;
     historyPanel.appendChild(row);
   });
@@ -651,12 +669,17 @@ function renderFailedDetails(results) {
     const row = document.createElement("div");
     row.className = "failed-item";
     const err = item.error || {};
+    const fileText = item.file || "未知文件";
+    const errCode = err.code || "ERR_UNKNOWN";
+    const reason = err.userMessage || err.detail || "转换失败";
+    const suggestion = err.suggestion || "请查看日志后重试";
+    const inputPath = item.input || "（上传文件，未提供原始绝对路径）";
     row.innerHTML = `
-      <div class="failed-main">${idx + 1}. ${item.file || "未知文件"}</div>
-      <div class="failed-meta">错误码：${err.code || "ERR_UNKNOWN"}</div>
-      <div class="failed-meta">原因：${err.userMessage || err.detail || "转换失败"}</div>
-      <div class="failed-meta">建议：${err.suggestion || "请查看日志后重试"}</div>
-      <div class="failed-path">源路径：${item.input || "（上传文件，未提供原始绝对路径）"}</div>
+      <div class="failed-main">${escapeHtml(`${idx + 1}. ${fileText}`)}</div>
+      <div class="failed-meta">错误码：${escapeHtml(errCode)}</div>
+      <div class="failed-meta">原因：${escapeHtml(reason)}</div>
+      <div class="failed-meta">建议：${escapeHtml(suggestion)}</div>
+      <div class="failed-path">源路径：${escapeHtml(inputPath)}</div>
     `;
     failedList.appendChild(row);
   });

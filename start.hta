@@ -73,6 +73,8 @@
     var exePath = appDir + "\\backend\\bin\\kugo-converter.exe";
     var ffmpegPath = appDir + "\\tools\\ffmpeg.exe";
     var port = 8080;
+    var serverExec = null;
+    var serverPid = 0;
 
     function setStatus(lines) {
       document.getElementById("status").innerHTML = lines.join("");
@@ -89,16 +91,64 @@
       }
     }
 
-    function killPort(p) {
+    function listListeningPids(p) {
+      var pids = [];
       try {
-        var cmd = 'cmd /c "for /f "tokens=5" %a in (\'netstat -ano ^| findstr :' + p + ' ^| findstr LISTENING\') do taskkill /F /PID %a"';
-        shell.Run(cmd, 0, true);
+        var cmd = 'cmd /c netstat -ano | findstr ":' + p + ' " | findstr LISTENING';
+        var exec = shell.Exec(cmd);
+        var output = exec.StdOut.ReadAll();
+        var lines = output.split(/\r?\n/);
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i].replace(/^\s+|\s+$/g, "");
+          if (!line) continue;
+          var match = line.match(/LISTENING\s+(\d+)\s*$/i);
+          if (match && match[1]) pids.push(match[1]);
+        }
       } catch (e) {}
+      return pids;
+    }
+
+    function getProcessNameByPid(pid) {
+      try {
+        var cmd = 'cmd /c tasklist /FI "PID eq ' + pid + '" /FO CSV /NH';
+        var exec = shell.Exec(cmd);
+        var output = exec.StdOut.ReadAll().replace(/^\s+|\s+$/g, "");
+        if (!output || output.indexOf("INFO:") === 0) return "";
+        if (output.charAt(0) === '"') {
+          var sep = output.indexOf('","');
+          if (sep > 1) return output.substring(1, sep);
+        }
+        return output.split(",")[0].replace(/"/g, "");
+      } catch (e) {
+        return "";
+      }
+    }
+
+    function killPort(p) {
+      var pids = listListeningPids(p);
+      if (!pids.length) return true;
+
+      var killed = false;
+      for (var i = 0; i < pids.length; i++) {
+        var pid = pids[i];
+        var processName = getProcessNameByPid(pid).toLowerCase();
+        if (processName === "kugo-converter.exe") {
+          shell.Run("taskkill /F /PID " + pid, 0, true);
+          killed = true;
+          continue;
+        }
+        setStatus([
+          '<div class="error">端口 ' + p + ' 被进程占用：' + (processName || "未知进程") + ' (PID ' + pid + ')</div>',
+          '<div class="info">为避免误杀，未自动结束该进程，请手动处理后重试。</div>'
+        ]);
+        return false;
+      }
+      return killed || !isPortBusy();
     }
 
     function sleep(ms) {
-      var end = new Date().getTime() + ms;
-      while (new Date().getTime() < end) {}
+      var sec = Math.ceil(ms / 1000);
+      shell.Run("cmd /c ping -n " + (sec + 1) + " 127.0.0.1 > nul", 0, true);
     }
 
     function startup() {
@@ -123,7 +173,7 @@
         setStatus([
           '<div class="warn">端口 ' + port + ' 被占用，正在强制释放...</div>'
         ]);
-        killPort(port);
+        if (!killPort(port)) return;
         sleep(1000);
         if (isPortBusy()) {
           setStatus([
@@ -138,7 +188,15 @@
       }
 
       var cmd = '"' + exePath + '" --addr :' + port + ' --ffmpeg "' + ffmpegPath + '"';
-      shell.Run(cmd, 0, false);
+      try {
+        serverExec = shell.Exec(cmd);
+        serverPid = serverExec.ProcessID;
+      } catch (e) {
+        setStatus([
+          '<div class="error">启动服务失败：' + e.message + '</div>'
+        ]);
+        return;
+      }
 
       setStatus([
         '<div class="success">服务已启动</div>',
@@ -154,15 +212,23 @@
 
     function stopServer() {
       try {
-        shell.Run('taskkill /F /IM kugo-converter.exe', 0, true);
+        if (serverPid > 0) {
+          shell.Run('taskkill /F /PID ' + serverPid, 0, true);
+        }
       } catch (e) {}
+      serverExec = null;
+      serverPid = 0;
       window.close();
     }
 
     window.onbeforeunload = function() {
       try {
-        shell.Run('taskkill /F /IM kugo-converter.exe', 0, true);
+        if (serverPid > 0) {
+          shell.Run('taskkill /F /PID ' + serverPid, 0, true);
+        }
       } catch (e) {}
+      serverExec = null;
+      serverPid = 0;
     };
 
     startup();

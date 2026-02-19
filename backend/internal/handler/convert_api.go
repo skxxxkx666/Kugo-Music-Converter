@@ -89,7 +89,7 @@ func parseInputPathItems(raw string) ([]service.BatchItem, error) {
 
 	var paths []string
 	if err := json.Unmarshal([]byte(raw), &paths); err != nil {
-		return nil, NewAppError(ErrNoFiles, "inputPaths 涓嶆槸鍚堟硶 JSON 鏁扮粍", err)
+		return nil, NewAppError(ErrNoFiles, "inputPaths 不是合法 JSON 数组", err)
 	}
 
 	items := make([]service.BatchItem, 0, len(paths))
@@ -124,23 +124,23 @@ func parseInputPathItems(raw string) ([]service.BatchItem, error) {
 func copyUploadToTemp(file multipart.File, hdr *multipart.FileHeader) (service.BatchItem, error) {
 	name := hdr.Filename
 	if !containsInputExt(name) {
-		return service.BatchItem{}, NewAppError(ErrUnsupportedFormat, fmt.Sprintf("涓嶆敮鎸佺殑鏍煎紡: %s", filepath.Ext(name)), nil)
+		return service.BatchItem{}, NewAppError(ErrUnsupportedFormat, fmt.Sprintf("不支持的格式: %s", filepath.Ext(name)), nil)
 	}
 
 	tmp, err := createTempFile("kgg-upload-", filepath.Ext(name))
 	if err != nil {
-		return service.BatchItem{}, NewAppError("ERR_UNKNOWN", "鍒涘缓涓存椂鏂囦欢澶辫触", err)
+		return service.BatchItem{}, NewAppError("ERR_UNKNOWN", "创建临时文件失败", err)
 	}
 
 	if _, err := copyStreamToFile(file, tmp); err != nil {
 		removeQuiet(tmp)
-		return service.BatchItem{}, NewAppError("ERR_UNKNOWN", "鍐欏叆涓存椂鏂囦欢澶辫触", err)
+		return service.BatchItem{}, NewAppError("ERR_UNKNOWN", "写入临时文件失败", err)
 	}
 
 	st, err := os.Stat(tmp)
 	if err != nil {
 		removeQuiet(tmp)
-		return service.BatchItem{}, NewAppError("ERR_UNKNOWN", "璇诲彇涓存椂鏂囦欢澶辫触", err)
+		return service.BatchItem{}, NewAppError("ERR_UNKNOWN", "读取临时文件失败", err)
 	}
 
 	return service.BatchItem{
@@ -180,12 +180,12 @@ func (h *ConvertHandler) parseConvertRequest(w http.ResponseWriter, r *http.Requ
 		for _, hdr := range group {
 			if hdr.Size > h.cfg.MaxFileSize {
 				cleanup()
-				return nil, NewAppError(ErrFileTooLarge, fmt.Sprintf("鏂囦欢 %s 瓒呰繃澶у皬闄愬埗", hdr.Filename), nil)
+				return nil, NewAppError(ErrFileTooLarge, fmt.Sprintf("文件 %s 超过大小限制", hdr.Filename), nil)
 			}
 			f, err := hdr.Open()
 			if err != nil {
 				cleanup()
-				return nil, NewAppError("ERR_UNKNOWN", "鎵撳紑涓婁紶鏂囦欢澶辫触", err)
+				return nil, NewAppError("ERR_UNKNOWN", "打开上传文件失败", err)
 			}
 			item, err := copyUploadToTemp(f, hdr)
 			_ = f.Close()
@@ -207,7 +207,7 @@ func (h *ConvertHandler) parseConvertRequest(w http.ResponseWriter, r *http.Requ
 
 	if len(items) == 0 {
 		cleanup()
-		return nil, NewAppError(ErrNoFiles, "鏈笂浼犲彲杞崲鏂囦欢", nil)
+		return nil, NewAppError(ErrNoFiles, "未上传可转换文件", nil)
 	}
 	if len(items) > h.cfg.MaxFiles {
 		cleanup()
@@ -216,23 +216,23 @@ func (h *ConvertHandler) parseConvertRequest(w http.ResponseWriter, r *http.Requ
 	for _, item := range items {
 		if item.Size > h.cfg.MaxFileSize {
 			cleanup()
-			return nil, NewAppError(ErrFileTooLarge, fmt.Sprintf("鏂囦欢 %s 瓒呰繃澶у皬闄愬埗", item.Name), nil)
+			return nil, NewAppError(ErrFileTooLarge, fmt.Sprintf("文件 %s 超过大小限制", item.Name), nil)
 		}
 	}
 
 	outputDir := strings.TrimSpace(r.FormValue("outputDir"))
 	if outputDir == "" {
 		cleanup()
-		return nil, NewAppError(ErrOutputRequired, "杈撳嚭鐩綍涓嶈兘涓虹┖", nil)
+		return nil, NewAppError(ErrOutputRequired, "输出目录不能为空", nil)
 	}
 	absOutputDir, err := filepath.Abs(outputDir)
 	if err != nil {
 		cleanup()
-		return nil, NewAppError(ErrOutputRequired, "杈撳嚭鐩綍鏃犳晥", err)
+		return nil, NewAppError(ErrOutputRequired, "输出目录无效", err)
 	}
 	if err := os.MkdirAll(absOutputDir, 0o755); err != nil {
 		cleanup()
-		return nil, NewAppError(ErrOutputRequired, "鏃犳硶鍒涘缓杈撳嚭鐩綍", err)
+		return nil, NewAppError(ErrOutputRequired, "无法创建输出目录", err)
 	}
 
 	outputFormat := service.NormalizeOutputFormat(r.FormValue("outputFormat"))
@@ -282,7 +282,7 @@ func (h *ConvertHandler) convertSingleItem(ctx context.Context, item service.Bat
 
 	if ext == ".kgg" {
 		if len(dbKeys) == 0 {
-			return "", NewAppError(ErrDBNotFound, "KGG 杞崲闇€瑕?KGMusicV3.db", nil)
+			return "", NewAppError(ErrDBNotFound, "KGG 转换需要 KGMusicV3.db", nil)
 		}
 		rawPath, rawCleanup, decryptErr = h.decryptService.DecryptFileByExtWithMemKey(item.Path, dbKeys)
 	} else {
@@ -301,7 +301,7 @@ func (h *ConvertHandler) convertSingleItem(ctx context.Context, item service.Bat
 
 	rawAudioExt, decryptErr = service.DetectAudioExt(rawPath)
 	if decryptErr != nil {
-		return "", NewAppError(ErrDecryptFailed, "鏃犳硶璇嗗埆瑙ｅ瘑鍚庣殑闊抽鏍煎紡", decryptErr)
+		return "", NewAppError(ErrDecryptFailed, "无法识别解密后的音频格式", decryptErr)
 	}
 
 	baseName := strings.TrimSuffix(item.Name, filepath.Ext(item.Name))
@@ -315,7 +315,7 @@ func (h *ConvertHandler) convertSingleItem(ctx context.Context, item service.Bat
 			progress("transcode", 80)
 		}
 		if err := service.CopyFile(rawPath, outputPath); err != nil {
-			return "", NewAppError(ErrTranscodeFailed, "鍐欏叆杈撳嚭鏂囦欢澶辫触", err)
+			return "", NewAppError(ErrTranscodeFailed, "写入输出文件失败", err)
 		}
 		if progress != nil {
 			progress("transcode", 100)
@@ -335,7 +335,7 @@ func (h *ConvertHandler) convertSingleItem(ctx context.Context, item service.Bat
 	targetExt := "." + req.OutputFormat
 	if strings.EqualFold(rawAudioExt, targetExt) {
 		if err := service.CopyFile(rawPath, outputPath); err != nil {
-			return "", NewAppError(ErrTranscodeFailed, "鍐欏叆杈撳嚭鏂囦欢澶辫触", err)
+			return "", NewAppError(ErrTranscodeFailed, "写入输出文件失败", err)
 		}
 	} else {
 		if err := service.TranscodeToFormat(ctx, h.ffmpegPath, rawPath, outputPath, req.OutputFormat, req.MP3Quality); err != nil {
@@ -435,7 +435,7 @@ func (h *ConvertHandler) executeBatch(ctx context.Context, req *convertRequest, 
 
 func (h *ConvertHandler) HandleConvert(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		writeError(w, http.StatusMethodNotAllowed, NewAppError("ERR_UNKNOWN", "method not allowed", nil))
+		writeMethodNotAllowed(w, http.MethodPost)
 		return
 	}
 	if missing := h.runtimeMissingTools(); len(missing) > 0 {
