@@ -1,7 +1,7 @@
 ﻿<!DOCTYPE html>
 <html>
 <head>
-  <title>酷狗音乐转换工具 v0.2.2.1</title>
+  <title>酷狗音乐转换工具 v0.2.3</title>
   <meta charset="utf-8">
   <HTA:APPLICATION
     ID="KugoConverter"
@@ -45,24 +45,35 @@
     .error { color: #f87171; }
     .warn { color: #fbbf24; }
     .info { color: #94a3b8; }
-    .btn {
+    .btn-row {
       margin-top: 20px;
-      padding: 10px 32px;
-      background: #dc2626;
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      padding: 10px 22px;
       color: white;
       border: none;
       border-radius: 6px;
       cursor: pointer;
       font-size: 14px;
     }
-    .btn:hover { background: #b91c1c; }
+    .btn-stop { background: #dc2626; }
+    .btn-stop:hover { background: #b91c1c; }
+    .btn-restart { background: #0f766e; }
+    .btn-restart:hover { background: #0d9488; }
   </style>
 </head>
 <body>
-  <h1>酷狗音乐转换工具 v0.2.2.1</h1>
+  <h1>酷狗音乐转换工具 v0.2.3</h1>
   <p class="subtitle">支持 KGG / KGM / KGMA / VPR / NCM 转换</p>
   <div id="status">正在启动服务...</div>
-  <button id="stopBtn" class="btn" style="display:none" onclick="stopServer()">停止服务并退出</button>
+  <div class="btn-row">
+    <button id="stopBtn" class="btn btn-stop" style="display:none" onclick="stopServer()">停止服务并退出</button>
+    <button id="restartBtn" class="btn btn-restart" style="display:none" onclick="restartServer()">重启服务</button>
+  </div>
 
   <script language="javascript">
     var shell = new ActiveXObject("WScript.Shell");
@@ -74,9 +85,25 @@
     var ffmpegPath = appDir + "\\tools\\ffmpeg.exe";
     var port = 8080;
     var serverPid = 0;
+    var browserOpened = false;
+
+    var healthTimer = null;
+    var healthCheckInFlight = false;
+    var healthFailCount = 0;
+    var healthFailThreshold = 3;
+    var healthCheckIntervalMs = 5000;
+    var lastRenderedStatus = "";
 
     function setStatus(lines) {
-      document.getElementById("status").innerHTML = lines.join("");
+      var html = lines.join("");
+      if (html === lastRenderedStatus) return;
+      lastRenderedStatus = html;
+      document.getElementById("status").innerHTML = html;
+    }
+
+    function setButtons(stopVisible, restartVisible) {
+      document.getElementById("stopBtn").style.display = stopVisible ? "inline-block" : "none";
+      document.getElementById("restartBtn").style.display = restartVisible ? "inline-block" : "none";
     }
 
     function isPortBusy() {
@@ -150,8 +177,151 @@
       shell.Run("cmd /c ping -n " + (sec + 1) + " 127.0.0.1 > nul", 0, true);
     }
 
+    function createHttpClient() {
+      try { return new ActiveXObject("MSXML2.XMLHTTP.6.0"); } catch (e1) {}
+      try { return new ActiveXObject("MSXML2.XMLHTTP"); } catch (e2) {}
+      try { return new ActiveXObject("Microsoft.XMLHTTP"); } catch (e3) {}
+      return null;
+    }
+
+    function parseJsonSafe(text) {
+      try {
+        if (window.JSON && window.JSON.parse) return window.JSON.parse(text);
+        return eval("(" + text + ")");
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function checkHealth(callback) {
+      var xhr = createHttpClient();
+      if (!xhr) {
+        callback(false, null, "无法创建 HTTP 客户端");
+        return;
+      }
+      var url = "http://127.0.0.1:" + port + "/api/health?_ts=" + new Date().getTime();
+      var done = false;
+      var timeoutTimer = null;
+      function finish(ok, payload, reason) {
+        if (done) return;
+        done = true;
+        if (timeoutTimer) window.clearTimeout(timeoutTimer);
+        callback(ok, payload, reason);
+      }
+      try {
+        xhr.open("GET", url, true);
+        xhr.setRequestHeader("Cache-Control", "no-cache");
+        timeoutTimer = window.setTimeout(function() {
+          try { xhr.abort(); } catch (e) {}
+          finish(false, null, "请求超时");
+        }, 3500);
+        xhr.onreadystatechange = function() {
+          if (xhr.readyState !== 4) return;
+          if (xhr.status === 200) {
+            var payload = parseJsonSafe(xhr.responseText) || {};
+            finish(true, payload, "");
+            return;
+          }
+          finish(false, null, "HTTP " + xhr.status);
+        };
+        xhr.send();
+      } catch (e) {
+        finish(false, null, e.message || "请求失败");
+      }
+    }
+
+    function stopHealthMonitor() {
+      if (healthTimer) {
+        window.clearInterval(healthTimer);
+        healthTimer = null;
+      }
+      healthCheckInFlight = false;
+    }
+
+    function markServerStopped(reason) {
+      stopHealthMonitor();
+      setStatus([
+        '<div class="error">服务已停止响应</div>',
+        '<div class="info">原因：' + (reason || "健康检查失败") + '</div>',
+        '<div class="warn">请点击“重启服务”恢复运行。</div>'
+      ]);
+      setButtons(true, true);
+    }
+
+    function renderServerRunningStatus(payload) {
+      var ver = payload && payload.version ? payload.version : "unknown";
+      var uptime = payload && payload.uptime ? payload.uptime : "0s";
+      setStatus([
+        '<div class="success">服务已启动并通过健康检查</div>',
+        '<div class="info">地址：http://localhost:' + port + '</div>',
+        '<div class="info">版本：' + ver + '，运行时长：' + uptime + '</div>'
+      ]);
+      setButtons(true, false);
+    }
+
+    function startHealthMonitor() {
+      stopHealthMonitor();
+      healthFailCount = 0;
+      healthTimer = window.setInterval(function() {
+        if (healthCheckInFlight) return;
+        healthCheckInFlight = true;
+        checkHealth(function(ok, payload, reason) {
+          healthCheckInFlight = false;
+          if (ok) {
+            healthFailCount = 0;
+            renderServerRunningStatus(payload);
+            return;
+          }
+          healthFailCount += 1;
+          if (healthFailCount >= healthFailThreshold) {
+            markServerStopped("连续 " + healthFailThreshold + " 次检查失败（" + reason + "）");
+          }
+        });
+      }, healthCheckIntervalMs);
+    }
+
+    function openBrowserOnce() {
+      if (browserOpened) return;
+      browserOpened = true;
+      var openUrl = "http://localhost:" + port + "/?_ts=" + new Date().getTime();
+      shell.Run('cmd /c start "" "' + openUrl + '"', 0, false);
+    }
+
+    function waitForServerReady(attempt, maxAttempts) {
+      checkHealth(function(ok, payload, reason) {
+        if (ok) {
+          renderServerRunningStatus(payload);
+          openBrowserOnce();
+          startHealthMonitor();
+          return;
+        }
+
+        if (attempt >= maxAttempts) {
+          setStatus([
+            '<div class="error">服务启动超时，健康检查未通过</div>',
+            '<div class="info">最后错误：' + (reason || "未知错误") + '</div>',
+            '<div class="warn">可点击“重启服务”重试。</div>'
+          ]);
+          setButtons(true, true);
+          return;
+        }
+
+        setStatus([
+          '<div class="warn">服务已启动，正在等待健康检查通过...</div>',
+          '<div class="info">第 ' + (attempt + 1) + '/' + maxAttempts + ' 次检测</div>'
+        ]);
+        window.setTimeout(function() {
+          waitForServerReady(attempt + 1, maxAttempts);
+        }, 500);
+      });
+    }
+
     function startup() {
-      window.resizeTo(560, 420);
+      window.resizeTo(580, 450);
+      stopHealthMonitor();
+      healthFailCount = 0;
+      browserOpened = false;
+      setButtons(false, false);
 
       if (!fso.FileExists(exePath)) {
         setStatus([
@@ -169,9 +339,7 @@
       }
 
       if (isPortBusy()) {
-        setStatus([
-          '<div class="warn">端口 ' + port + ' 被占用，正在强制释放...</div>'
-        ]);
+        setStatus(['<div class="warn">端口 ' + port + ' 被占用，正在强制释放...</div>']);
         if (!killPort(port)) return;
         sleep(1000);
         if (isPortBusy()) {
@@ -181,9 +349,6 @@
           ]);
           return;
         }
-        setStatus([
-          '<div class="success">端口已释放，正在启动服务...</div>'
-        ]);
       }
 
       var cmd = '"' + exePath + '" --addr :' + port + ' --ffmpeg "' + ffmpegPath + '"';
@@ -202,39 +367,47 @@
         }
         serverPid = outParams.ProcessId;
       } catch (e) {
-        setStatus([
-          '<div class="error">启动服务失败：' + e.message + '</div>'
-        ]);
+        setStatus(['<div class="error">启动服务失败：' + e.message + '</div>']);
         return;
       }
 
+      setButtons(true, false);
       setStatus([
-        '<div class="success">服务已启动</div>',
-        '<div class="info">地址：http://localhost:' + port + '</div>',
-        '<div class="info">正在打开浏览器...</div>'
+        '<div class="success">服务进程已启动（PID ' + serverPid + '）</div>',
+        '<div class="info">正在进行健康检查...</div>'
       ]);
-      document.getElementById("stopBtn").style.display = "inline-block";
+      waitForServerReady(0, 24);
+    }
 
-      window.setTimeout(function() {
-        shell.Run('cmd /c start http://localhost:' + port, 0, false);
-      }, 1500);
+    function restartServer() {
+      stopHealthMonitor();
+      try {
+        if (serverPid > 0) {
+          shell.Run("taskkill /F /PID " + serverPid, 0, true);
+        }
+      } catch (e) {}
+      serverPid = 0;
+      if (isPortBusy()) {
+        if (!killPort(port)) return;
+        sleep(800);
+      }
+      startup();
     }
 
     function stopServer() {
+      stopHealthMonitor();
       try {
-        if (serverPid > 0) {
-          shell.Run('taskkill /F /PID ' + serverPid, 0, true);
-        }
+        if (serverPid > 0) shell.Run("taskkill /F /PID " + serverPid, 0, true);
+        else if (isPortBusy()) killPort(port);
       } catch (e) {}
       serverPid = 0;
       window.close();
     }
 
     window.onbeforeunload = function() {
+      stopHealthMonitor();
       try {
-        if (serverPid > 0) {
-          shell.Run('taskkill /F /PID ' + serverPid, 0, true);
-        }
+        if (serverPid > 0) shell.Run("taskkill /F /PID " + serverPid, 0, true);
       } catch (e) {}
       serverPid = 0;
     };
@@ -243,4 +416,3 @@
   </script>
 </body>
 </html>
-

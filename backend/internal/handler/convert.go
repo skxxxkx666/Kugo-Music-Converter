@@ -28,6 +28,7 @@ const (
 type ConvertHandler struct {
 	cfg            *config.Config
 	decryptService *service.DecryptService
+	startedAt      time.Time
 
 	baseDir          string
 	publicDir        string
@@ -51,6 +52,7 @@ func NewConvertHandler(cfg *config.Config) *ConvertHandler {
 	h := &ConvertHandler{
 		cfg:              cfg,
 		decryptService:   service.NewDecryptService(cfg),
+		startedAt:        time.Now(),
 		baseDir:          baseDir,
 		publicDir:        publicDir,
 		ffmpegPath:       ffmpegPath,
@@ -80,6 +82,7 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/config", h.HandleConfig)
+	mux.HandleFunc("/api/health", h.HandleHealth)
 	mux.HandleFunc("/api/convert", h.HandleConvert)
 	mux.HandleFunc("/api/convert-stream", h.HandleConvertStream)
 	mux.HandleFunc("/api/upload-db", h.HandleUploadDB)

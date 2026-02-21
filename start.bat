@@ -2,10 +2,10 @@
 setlocal EnableExtensions EnableDelayedExpansion
 chcp 936 >nul
 
-title Kugo Music Converter v0.2.2.1
+title Kugo Music Converter v0.2.3
 
 echo ======================================
-echo   Kugo Music Converter v0.2.2.1
+echo   Kugo Music Converter v0.2.3
 echo   Support KGG/KGM/KGMA/VPR/NCM
 echo ======================================
 echo.

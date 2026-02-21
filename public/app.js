@@ -1,10 +1,17 @@
 ﻿import { readSseStream } from "./modules/sse.js";
 import { createScanner } from "./modules/scanner.js";
+import { fadeIn, prefersReducedMotion, slideDown, stagger } from "./modules/animations.js";
+import { parseVersion, isPreviewVersion, shouldNotifyUpdate } from "./modules/version.js";
 
-const APP_VERSION = "v0.2.2.1";
+const APP_VERSION = "v0.2.3";
 const HISTORY_KEY = "kgg-converter-history";
 const THEME_KEY = "kgg-converter-theme";
 const SUPPORTED_EXTS = [".kgg", ".kgm", ".kgma", ".vpr", ".ncm"];
+const UPDATE_CHECK_KEY = "kgg-converter-update-cache-v1";
+const UPDATE_IGNORE_KEY = "kgg-converter-update-ignore-v1";
+const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const GITHUB_LATEST_RELEASE_API =
+  "https://api.github.com/repos/skxxxkx666/Kugo-Music-Converter/releases/latest";
 
 const STORAGE_KEYS = {
   outputDir: "kgg-converter-output-dir",
@@ -21,6 +28,23 @@ const LOG_LEVEL_LABELS = {
   info: "INFO"
 };
 const MAX_LOG_ENTRIES = 500;
+const EXT_ICON_MAP = {
+  ".kgg": "lock",
+  ".kgm": "music",
+  ".kgma": "music",
+  ".vpr": "file-audio",
+  ".ncm": "disc",
+  ".mp3": "file-audio",
+  ".flac": "file-audio",
+  ".wav": "file-audio",
+  ".ogg": "file-audio"
+};
+const LUCIDE_FALLBACK_CDNS = [
+  "https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js",
+  "https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js",
+  "https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js",
+  "https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"
+];
 
 const fileInput = document.getElementById("kggFiles");
 const pickFilesBtn = document.getElementById("pickFilesBtn");
@@ -45,6 +69,7 @@ const openOutputBtn = document.getElementById("openOutputBtn");
 const openResultDirBtn = document.getElementById("openResultDirBtn");
 
 const globalAlert = document.getElementById("globalAlert");
+const updateBannerHost = document.getElementById("updateBannerHost");
 const dbStatus = document.getElementById("dbStatus");
 const runtimeStatus = document.getElementById("runtimeStatus");
 const logBox = document.getElementById("logBox");
@@ -87,6 +112,7 @@ const selectAllForConvert = document.getElementById("selectAllForConvert");
 const themeToggleBtn = document.getElementById("themeToggleBtn");
 const versionBadge = document.getElementById("versionBadge");
 const footerVersion = document.getElementById("footerVersion");
+const loadingSkeleton = document.getElementById("loadingSkeleton");
 
 const state = {
   isBusy: false,
@@ -108,11 +134,262 @@ const state = {
   abortController: null,
   progressDone: 0,
   progressTotal: 0,
-  failedResults: []
+  failedResults: [],
+  progressPulseDone: false
 };
 
 let validateDbTimer = null;
 let useSystemThemeSync = true;
+let dropZoneDragDepth = 0;
+let windowDragDepth = 0;
+let lucideEnsurePromise = null;
+
+function hasGSAP() {
+  return typeof window !== "undefined" && Boolean(window.gsap);
+}
+
+function hasLucide() {
+  return Boolean(window.lucide && typeof window.lucide.createIcons === "function");
+}
+
+function loadExternalScript(src, timeoutMs = 4500) {
+  return new Promise((resolve) => {
+    const script = document.createElement("script");
+    let settled = false;
+    script.src = src;
+    script.async = true;
+    script.defer = true;
+    script.setAttribute("data-lucide-fallback", src);
+
+    const cleanup = (ok) => {
+      if (settled) return;
+      settled = true;
+      resolve(ok);
+    };
+
+    const timer = window.setTimeout(() => cleanup(false), timeoutMs);
+    script.onload = () => {
+      window.clearTimeout(timer);
+      cleanup(true);
+    };
+    script.onerror = () => {
+      window.clearTimeout(timer);
+      cleanup(false);
+    };
+
+    document.head.appendChild(script);
+  });
+}
+
+async function ensureLucideAvailable() {
+  if (hasLucide()) return true;
+  if (lucideEnsurePromise) return lucideEnsurePromise;
+
+  lucideEnsurePromise = (async () => {
+    for (const src of LUCIDE_FALLBACK_CDNS) {
+      const loaded = await loadExternalScript(src);
+      if (!loaded) continue;
+      if (hasLucide()) return true;
+    }
+    return false;
+  })();
+
+  const ok = await lucideEnsurePromise;
+  if (!ok) lucideEnsurePromise = null;
+  return ok;
+}
+
+function applyIconFallback() {
+  const pending = document.querySelectorAll("i[data-lucide]");
+  pending.forEach((node) => {
+    if (node.querySelector("svg")) return;
+    const className = node.getAttribute("class") || "ui-icon";
+    node.innerHTML = `
+      <svg class="${escapeHtml(className)}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="8"></circle>
+        <path d="M12 8v8"></path>
+        <path d="M8 12h8"></path>
+      </svg>
+    `;
+  });
+}
+
+function refreshIcons() {
+  if (hasLucide()) {
+    window.lucide.createIcons({
+      attrs: {
+        "stroke-width": 1.9
+      }
+    });
+    return;
+  }
+
+  applyIconFallback();
+  ensureLucideAvailable().then((ok) => {
+    if (ok && hasLucide()) {
+      window.lucide.createIcons({
+        attrs: {
+          "stroke-width": 1.9
+        }
+      });
+      return;
+    }
+    applyIconFallback();
+  });
+}
+
+function iconMarkup(name, className = "ui-icon", decorative = true, ariaLabel = "") {
+  const attrs = decorative
+    ? 'aria-hidden="true" focusable="false"'
+    : `role="img" aria-label="${escapeHtml(ariaLabel)}"`;
+  return `<i data-lucide="${escapeHtml(name)}" class="${escapeHtml(className)}" ${attrs}></i>`;
+}
+
+function extIconName(ext) {
+  return EXT_ICON_MAP[String(ext || "").toLowerCase()] || "file";
+}
+
+function setButtonContent(button, text, iconName, options = {}) {
+  if (!button) return;
+  const { iconOnly = false } = options;
+  const safeText = String(text || "").trim();
+  const safeIcon = String(iconName || "").trim();
+  button.innerHTML = "";
+
+  if (!safeIcon) {
+    button.textContent = safeText;
+    if (safeText && !button.getAttribute("aria-label")) button.setAttribute("aria-label", safeText);
+    return;
+  }
+
+  const content = document.createElement("span");
+  content.className = "btn-content";
+  content.innerHTML = iconMarkup(safeIcon, "ui-icon", true);
+
+  if (!iconOnly) {
+    const textEl = document.createElement("span");
+    textEl.className = "btn-text";
+    textEl.textContent = safeText;
+    content.appendChild(textEl);
+  }
+
+  button.appendChild(content);
+  if (safeText && !button.getAttribute("aria-label")) button.setAttribute("aria-label", safeText);
+  refreshIcons();
+}
+
+function setStatusIcon(iconElement, iconName, ariaLabel) {
+  if (!iconElement) return;
+  if (iconElement.dataset.iconName === iconName) {
+    iconElement.setAttribute("aria-label", ariaLabel);
+    return;
+  }
+  iconElement.dataset.iconName = iconName;
+  iconElement.innerHTML = iconMarkup(iconName, iconName === "loader-circle" ? "ui-icon spin" : "ui-icon", true);
+  iconElement.setAttribute("aria-label", ariaLabel);
+  refreshIcons();
+}
+
+function renderExtBadge(ext) {
+  const extText = (ext || ".").replace(".", "").toUpperCase();
+  return `
+    <span class="${extBadgeClass(ext)}">
+      ${iconMarkup(extIconName(ext), "ext-icon", true)}
+      <span>${escapeHtml(extText)}</span>
+    </span>
+  `;
+}
+
+function syncBusyVisualState() {
+  const isLoading = document.body.classList.contains("app-loading");
+  const busy = Boolean(state.isBusy || isLoading);
+  document.body.classList.toggle("is-busy", busy);
+  document.body.setAttribute("aria-busy", busy ? "true" : "false");
+}
+
+function setSkeletonLoading(isLoading) {
+  document.body.classList.toggle("app-loading", Boolean(isLoading));
+  if (loadingSkeleton) loadingSkeleton.setAttribute("aria-hidden", isLoading ? "false" : "true");
+  syncBusyVisualState();
+}
+
+function isFileDragEvent(event) {
+  const types = event?.dataTransfer?.types;
+  if (!types) return false;
+  for (let i = 0; i < types.length; i += 1) {
+    if (String(types[i]).toLowerCase() === "files") return true;
+  }
+  return false;
+}
+
+function resetDraggingState() {
+  windowDragDepth = 0;
+  dropZoneDragDepth = 0;
+  document.body.classList.remove("dragging-files");
+  dropZone.classList.remove("drag-over");
+}
+
+function decorateStaticActionButtons() {
+  const buttons = Array.from(document.querySelectorAll("button[data-icon]"));
+  buttons.forEach((button) => {
+    if (button === convertBtn || button === cancelBtn || button === themeToggleBtn) return;
+    const iconName = button.getAttribute("data-icon") || "";
+    const text = button.textContent.trim();
+    if (!text) return;
+    setButtonContent(button, text, iconName);
+  });
+}
+
+function animatePageEntrance() {
+  const hero = document.querySelector(".hero");
+  const cards = document.querySelectorAll(".card");
+  slideDown(hero, { duration: 0.6, ease: "power3.out" });
+  stagger(cards, { duration: 0.5, stagger: 0.12, ease: "power2.out", delay: 0.05 });
+}
+
+function pulseDropZone() {
+  if (!hasGSAP() || prefersReducedMotion()) return;
+  window.gsap.killTweensOf(dropZone);
+  window.gsap.fromTo(
+    dropZone,
+    { scale: 1, boxShadow: "0 0 0 0 rgba(15,118,110,0.22)" },
+    {
+      scale: 1.01,
+      boxShadow: "0 0 0 8px rgba(15,118,110,0)",
+      duration: 0.3,
+      ease: "power2.out"
+    }
+  );
+}
+
+function animateFileRemove(row, onComplete) {
+  if (!row || !hasGSAP() || prefersReducedMotion()) {
+    onComplete();
+    return;
+  }
+  window.gsap.to(row, {
+    opacity: 0,
+    y: -12,
+    duration: 0.25,
+    ease: "power1.in",
+    onComplete
+  });
+}
+
+function animateResultDashboardReveal() {
+  if (resultDashboard.classList.contains("hidden")) return;
+  if (!hasGSAP() || prefersReducedMotion()) return;
+  fadeIn(resultDashboard, { duration: 0.4, ease: "power2.out" });
+}
+
+function applyMicroInteractions() {
+  if (!hasGSAP() || prefersReducedMotion()) return;
+  document.addEventListener("pointerdown", (event) => {
+    const button = event.target.closest("button:not(:disabled)");
+    if (!button) return;
+    window.gsap.to(button, { scale: 0.97, duration: 0.08, yoyo: true, repeat: 1, ease: "power1.out" });
+  });
+}
 
 function appendLog(level, message) {
   const now = new Date().toLocaleTimeString("zh-CN", { hour12: false });
@@ -187,9 +464,27 @@ function updateProgressETA() {
 
 function updateProgressBar(percent, hasError = false) {
   const safe = Math.max(0, Math.min(100, Number(percent) || 0));
-  totalProgressBar.style.width = `${safe}%`;
+  if (hasGSAP() && !prefersReducedMotion()) {
+    window.gsap.to(totalProgressBar, {
+      width: `${safe}%`,
+      duration: 0.4,
+      ease: "power1.out",
+      overwrite: "auto"
+    });
+    if (safe >= 100 && !state.progressPulseDone) {
+      state.progressPulseDone = true;
+      window.gsap.fromTo(
+        totalProgressBar,
+        { scale: 1, transformOrigin: "center center" },
+        { scale: 1.04, duration: 0.14, ease: "power1.out", repeat: 1, yoyo: true }
+      );
+    }
+  } else {
+    totalProgressBar.style.width = `${safe}%`;
+  }
   totalProgressText.textContent = `${safe}%`;
   totalProgressBar.classList.toggle("error", Boolean(hasError));
+  totalProgressBar.setAttribute("aria-valuenow", String(safe));
 }
 
 function extBadgeClass(ext) {
@@ -204,6 +499,184 @@ function escapeHtml(str) {
   const div = document.createElement("div");
   div.textContent = String(str ?? "");
   return div.innerHTML;
+}
+
+function summarizeReleaseBody(body) {
+  const text = String(body || "")
+    .replace(/\r/g, "")
+    .split("\n")
+    .map((line) => line.trim())
+    .find((line) => line && !line.startsWith("#"));
+  if (!text) return "包含功能改进与问题修复。";
+  return text.length > 90 ? `${text.slice(0, 90)}...` : text;
+}
+
+function formatReleaseDate(value) {
+  const date = new Date(value || "");
+  if (Number.isNaN(date.getTime())) return "未知日期";
+  return date.toLocaleDateString("zh-CN");
+}
+
+function readUpdateCache() {
+  try {
+    return JSON.parse(localStorage.getItem(UPDATE_CHECK_KEY) || "null");
+  } catch {
+    return null;
+  }
+}
+
+function writeUpdateCache(data) {
+  try {
+    localStorage.setItem(
+      UPDATE_CHECK_KEY,
+      JSON.stringify({
+        checkedAt: Date.now(),
+        data
+      })
+    );
+  } catch {
+    // ignore storage failures
+  }
+}
+
+async function fetchLatestReleaseFromGitHub() {
+  const response = await fetch(GITHUB_LATEST_RELEASE_API, {
+    headers: {
+      Accept: "application/vnd.github+json"
+    }
+  });
+  if (!response.ok) throw new Error("update_check_failed");
+  const data = await response.json();
+  return {
+    tagName: String(data?.tag_name || "").trim(),
+    htmlUrl: String(data?.html_url || "").trim(),
+    body: String(data?.body || ""),
+    publishedAt: String(data?.published_at || ""),
+    prerelease: Boolean(data?.prerelease)
+  };
+}
+
+function hideUpdateBanner() {
+  if (!updateBannerHost) return;
+  updateBannerHost.innerHTML = "";
+  updateBannerHost.classList.add("hidden");
+}
+
+function renderUpdateBanner(release) {
+  if (!updateBannerHost) return;
+
+  updateBannerHost.innerHTML = "";
+
+  const banner = document.createElement("section");
+  banner.className = "update-banner";
+  banner.setAttribute("role", "status");
+
+  const title = document.createElement("div");
+  title.className = "update-banner-title";
+  title.innerHTML = `
+    ${iconMarkup("bell-ring", "update-banner-icon", true)}
+    <span>新版本可用：${escapeHtml(release.tagName)}（${escapeHtml(formatReleaseDate(release.publishedAt))}）</span>
+  `;
+
+  const summary = document.createElement("div");
+  summary.className = "update-banner-summary";
+  summary.textContent = `更新内容：${summarizeReleaseBody(release.body)}`;
+
+  const actions = document.createElement("div");
+  actions.className = "update-banner-actions";
+
+  const downloadLink = document.createElement("a");
+  downloadLink.className = "update-action-link";
+  downloadLink.href = release.htmlUrl || "https://github.com/skxxxkx666/Kugo-Music-Converter/releases";
+  downloadLink.target = "_blank";
+  downloadLink.rel = "noopener noreferrer";
+  downloadLink.setAttribute("aria-label", "前往下载最新版本");
+  downloadLink.innerHTML = `${iconMarkup("download", "ui-icon", true)}<span>前往下载</span>`;
+
+  const detailLink = document.createElement("a");
+  detailLink.className = "update-action-link secondary";
+  detailLink.href = release.htmlUrl || "https://github.com/skxxxkx666/Kugo-Music-Converter/releases";
+  detailLink.target = "_blank";
+  detailLink.rel = "noopener noreferrer";
+  detailLink.setAttribute("aria-label", "查看更新详情");
+  detailLink.innerHTML = `${iconMarkup("info", "ui-icon", true)}<span>查看详情</span>`;
+
+  const ignoreBtn = document.createElement("button");
+  ignoreBtn.type = "button";
+  ignoreBtn.className = "update-action-btn";
+  ignoreBtn.setAttribute("aria-label", "忽略此版本更新提示");
+  ignoreBtn.innerHTML = `${iconMarkup("bell-off", "ui-icon", true)}<span>忽略此版本</span>`;
+  ignoreBtn.addEventListener("click", () => {
+    localStorage.setItem(UPDATE_IGNORE_KEY, release.tagName);
+    hideUpdateBanner();
+  });
+
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.className = "update-action-close";
+  closeBtn.setAttribute("aria-label", "关闭更新提示");
+  closeBtn.innerHTML = iconMarkup("x", "ui-icon", true);
+  closeBtn.addEventListener("click", hideUpdateBanner);
+
+  actions.appendChild(downloadLink);
+  actions.appendChild(detailLink);
+  actions.appendChild(ignoreBtn);
+  actions.appendChild(closeBtn);
+
+  banner.appendChild(title);
+  banner.appendChild(summary);
+  banner.appendChild(actions);
+
+  updateBannerHost.appendChild(banner);
+  updateBannerHost.classList.remove("hidden");
+  refreshIcons();
+  if (hasGSAP() && !prefersReducedMotion()) {
+    const iconEl = banner.querySelector(".update-banner-icon");
+    const timeline = window.gsap.timeline();
+    timeline.from(banner, {
+      y: -60,
+      opacity: 0,
+      duration: 0.5,
+      ease: "back.out(1.4)"
+    });
+    if (iconEl) {
+      timeline.from(
+        iconEl,
+        {
+          scale: 0,
+          rotation: -180,
+          duration: 0.4,
+          ease: "back.out(2)"
+        },
+        "-=0.25"
+      );
+    }
+  } else {
+    slideDown(banner);
+  }
+}
+
+async function checkForUpdates() {
+  try {
+    const cache = readUpdateCache();
+    let release = cache?.data || null;
+    const cacheFresh =
+      Number.isFinite(Number(cache?.checkedAt)) && Date.now() - Number(cache.checkedAt) < UPDATE_CHECK_INTERVAL_MS;
+
+    if (!cacheFresh || !release?.tagName) {
+      release = await fetchLatestReleaseFromGitHub();
+      writeUpdateCache(release);
+    }
+
+    if (!release || !release.tagName) return;
+    if (localStorage.getItem(UPDATE_IGNORE_KEY) === release.tagName) return;
+    if (!parseVersion(APP_VERSION) || !parseVersion(release.tagName)) return;
+    if (!shouldNotifyUpdate(APP_VERSION, release.tagName, release.prerelease)) return;
+
+    renderUpdateBanner(release);
+  } catch {
+    // 静默忽略更新检测错误
+  }
 }
 
 async function fetchJson(url, options = {}) {
@@ -255,22 +728,26 @@ function renderFilePreview() {
   if (items.length === 0) return;
 
   items.forEach((item) => {
-    const extText = (item.ext || ".").replace(".", "").toUpperCase();
     const titleText = item.source === "path" ? item.fullPath : item.name;
     const prefix = item.source === "path" ? "[路径]" : "[上传]";
     const displayName = `${prefix} ${item.name}`;
     const row = document.createElement("div");
     row.className = "file-preview-item";
+    row.setAttribute("role", "listitem");
     row.innerHTML = `
-      <span class="${extBadgeClass(item.ext)}">${escapeHtml(extText)}</span>
+      ${renderExtBadge(item.ext)}
       <span class="file-preview-name" title="${escapeHtml(titleText)}">
         ${escapeHtml(displayName)}
       </span>
       <span class="file-preview-size">${formatBytes(item.size)}</span>
-      <button class="btn-remove" data-source="${item.source}" data-index="${item.index}" title="移除">x</button>
+      <button class="btn-remove" type="button" data-source="${item.source}" data-index="${item.index}" aria-label="移除文件">
+        ${iconMarkup("trash-2", "ui-icon", true)}
+      </button>
     `;
     filePreviewList.appendChild(row);
   });
+
+  refreshIcons();
 }
 
 function updateFileSummary() {
@@ -300,12 +777,22 @@ function renderGlobalAlert() {
 
   if (issues.length === 0) {
     globalAlert.classList.add("hidden");
-    globalAlert.textContent = "";
+    globalAlert.innerHTML = "";
     return;
   }
 
   globalAlert.classList.remove("hidden");
-  globalAlert.textContent = issues.join("\n");
+  globalAlert.innerHTML = issues
+    .map(
+      (issue) => `
+        <div class="alert-item">
+          ${iconMarkup("triangle-alert", "alert-icon", true)}
+          <span>${escapeHtml(issue)}</span>
+        </div>
+      `
+    )
+    .join("");
+  refreshIcons();
 }
 
 function updateConvertButtonState() {
@@ -317,8 +804,10 @@ function updateConvertButtonState() {
     (!requiresDb() || isDbReady());
 
   convertBtn.disabled = !ready;
-  convertBtn.textContent = state.isBusy ? "转换中..." : "开始转换";
+  setButtonContent(convertBtn, state.isBusy ? "转换中..." : "开始转换", state.isBusy ? "loader-circle" : "play");
+  convertBtn.setAttribute("aria-label", state.isBusy ? "转换进行中" : "开始转换");
   cancelBtn.disabled = !state.isBusy;
+  setButtonContent(cancelBtn, "取消", "square");
 }
 
 function setBusy(isBusy) {
@@ -335,6 +824,7 @@ function setBusy(isBusy) {
   redetectDbBtn.disabled = isBusy;
   pickFoldersBtn.disabled = isBusy;
   scanBtn.disabled = isBusy || state.selectedFolderPaths.length === 0;
+  syncBusyVisualState();
   updateConvertButtonState();
 }
 
@@ -394,6 +884,7 @@ function renderHistory() {
   state.history.slice(0, 10).forEach((item) => {
     const row = document.createElement("div");
     row.className = "history-item";
+    row.setAttribute("role", "listitem");
     const timeText = new Date(item.timestamp).toLocaleString("zh-CN", { hour12: false });
     const outputFormat = String(item.outputFormat || "").toUpperCase();
     row.innerHTML = `
@@ -404,15 +895,51 @@ function renderHistory() {
   });
 }
 
-function updateVersionBadge() {
-  if (versionBadge) versionBadge.textContent = `版本 ${APP_VERSION}`;
-  if (footerVersion) footerVersion.textContent = APP_VERSION;
+function updateVersionBadge(serverVersion = "") {
+  const frontendVersion = APP_VERSION;
+  const backendVersion = String(serverVersion || "").trim();
+  const hasMismatch = Boolean(backendVersion && backendVersion !== frontendVersion);
+  const preview = isPreviewVersion(frontendVersion);
+
+  if (versionBadge) {
+    versionBadge.classList.toggle("preview", preview && !hasMismatch);
+    if (hasMismatch) {
+      versionBadge.textContent = `版本 前端 ${frontendVersion} / 后端 ${backendVersion}`;
+    } else if (preview) {
+      versionBadge.innerHTML = `版本 ${escapeHtml(frontendVersion)} <span class="version-badge-tag">预览</span>`;
+    } else {
+      versionBadge.textContent = `版本 ${frontendVersion}`;
+    }
+  }
+
+  if (footerVersion) {
+    if (hasMismatch) {
+      footerVersion.textContent = `前端 ${frontendVersion} / 后端 ${backendVersion}`;
+    } else {
+      footerVersion.textContent = preview ? `${frontendVersion}（预览）` : frontendVersion;
+    }
+  }
+}
+
+async function syncVersionFromHealth() {
+  try {
+    const health = await fetchJson(`/api/health?_ts=${Date.now()}`);
+    const backendVersion = String(health?.version || "").trim();
+    updateVersionBadge(backendVersion);
+    if (backendVersion && backendVersion !== APP_VERSION) {
+      appendLog("warn", `版本不一致：前端 ${APP_VERSION}，后端 ${backendVersion}。建议刷新页面或重启启动器。`);
+    }
+  } catch {
+    updateVersionBadge();
+  }
 }
 
 function applyTheme(theme, persist = true) {
   const normalized = theme === "dark" ? "dark" : "light";
   document.documentElement.setAttribute("data-theme", normalized);
-  themeToggleBtn.textContent = normalized === "dark" ? "切换浅色" : "切换深色";
+  const isDark = normalized === "dark";
+  setButtonContent(themeToggleBtn, isDark ? "切换浅色" : "切换深色", isDark ? "sun" : "moon");
+  themeToggleBtn.setAttribute("aria-label", isDark ? "切换到浅色主题" : "切换到深色主题");
   if (persist) localStorage.setItem(THEME_KEY, normalized);
 }
 
@@ -649,10 +1176,33 @@ async function redetectDb() {
 }
 
 function renderDashboard(summary) {
+  function animateStatNumber(targetEl, targetValue, formatter) {
+    const safeValue = Math.max(0, Number(targetValue) || 0);
+    const render = typeof formatter === "function" ? formatter : (value) => String(value);
+    targetEl.textContent = render(0);
+
+    if (!hasGSAP() || prefersReducedMotion()) {
+      targetEl.textContent = render(safeValue);
+      return;
+    }
+
+    const counter = { value: 0 };
+    window.gsap.to(counter, {
+      value: safeValue,
+      duration: 0.95,
+      ease: "power2.out",
+      snap: { value: 1 },
+      onUpdate: () => {
+        targetEl.textContent = render(Math.round(counter.value));
+      }
+    });
+  }
+
   resultDashboard.classList.remove("hidden");
-  statSuccess.textContent = String(summary.success || 0);
-  statFailed.textContent = String(summary.failed || 0);
-  statDuration.textContent = formatDuration(summary.durationMs || 0);
+  animateStatNumber(statSuccess, summary.success || 0, (value) => String(value));
+  animateStatNumber(statFailed, summary.failed || 0, (value) => String(value));
+  animateStatNumber(statDuration, Math.round((summary.durationMs || 0) / 1000), (value) => formatDuration(value * 1000));
+  animateResultDashboardReveal();
 }
 
 function renderFailedDetails(results) {
@@ -668,6 +1218,7 @@ function renderFailedDetails(results) {
   failed.forEach((item, idx) => {
     const row = document.createElement("div");
     row.className = "failed-item";
+    row.setAttribute("role", "listitem");
     const err = item.error || {};
     const fileText = item.file || "未知文件";
     const errCode = err.code || "ERR_UNKNOWN";
@@ -697,6 +1248,7 @@ function resetProgressUI(total) {
   state.progressDone = 0;
   state.progressTotal = total;
   state.failedResults = [];
+  state.progressPulseDone = false;
 
   failedSection.classList.add("hidden");
   failedList.innerHTML = "";
@@ -704,6 +1256,9 @@ function resetProgressUI(total) {
   updateProgressBar(0, false);
   progressStatus.textContent = "准备开始转换...";
   progressETA.textContent = "";
+  statSuccess.textContent = "0";
+  statFailed.textContent = "0";
+  statDuration.textContent = formatDuration(0);
   resultDashboard.classList.add("hidden");
 }
 
@@ -717,10 +1272,11 @@ function getOrCreateFileRow(data) {
 
   const row = document.createElement("div");
   row.className = "file-list-item pending";
+  row.setAttribute("role", "listitem");
 
   const icon = document.createElement("span");
   icon.className = "status-icon";
-  icon.textContent = "等待";
+  setStatusIcon(icon, "clock-3", "等待中");
 
   const text = document.createElement("span");
   text.className = "file-text";
@@ -738,10 +1294,18 @@ function getOrCreateFileRow(data) {
 function updateFileRow(data, statusClass, statusText) {
   const item = getOrCreateFileRow(data);
   item.row.className = `file-list-item ${statusClass}`;
-  if (statusClass === "active") item.icon.textContent = "进行";
-  if (statusClass === "success") item.icon.textContent = "完成";
-  if (statusClass === "error") item.icon.textContent = "失败";
-  if (statusClass === "pending") item.icon.textContent = "等待";
+  if (statusClass === "active") {
+    setStatusIcon(item.icon, "loader-circle", "进行中");
+  }
+  if (statusClass === "success") {
+    setStatusIcon(item.icon, "circle-check", "转换成功");
+  }
+  if (statusClass === "error") {
+    setStatusIcon(item.icon, "circle-x", "转换失败");
+  }
+  if (statusClass === "pending") {
+    setStatusIcon(item.icon, "clock-3", "等待中");
+  }
   item.text.textContent = `[${data.current}/${data.total}] ${data.file} ${statusText}`;
 }
 
@@ -785,6 +1349,7 @@ function handleProgressEvent(eventName, data) {
   if (eventName === "complete") {
     state.lastSummary = data;
     const doneText = `已完成：成功 ${data.success || 0}，失败 ${data.failed || 0}，耗时 ${formatDuration(data.durationMs || 0)}`;
+    updateProgressBar(100, state.hasFileError || (data.failed || 0) > 0);
     progressStatus.textContent = doneText;
     progressETA.textContent = "";
     appendLog("info", doneText);
@@ -991,7 +1556,10 @@ const scanner = createScanner({
   appendLog,
   appendPayloadError,
   formatBytes,
-  extBadgeClass,
+  renderExtBadge,
+  escapeHtml,
+  iconMarkup,
+  refreshIcons,
   copyTextToClipboard,
   onQueueChanged: queueChanged,
   pendingCount
@@ -1004,16 +1572,43 @@ function bindEvents() {
     fileInput.value = "";
   });
 
+  window.addEventListener("dragenter", (e) => {
+    if (!isFileDragEvent(e)) return;
+    windowDragDepth += 1;
+    document.body.classList.add("dragging-files");
+  });
+  window.addEventListener("dragleave", () => {
+    windowDragDepth = Math.max(0, windowDragDepth - 1);
+    if (windowDragDepth === 0) document.body.classList.remove("dragging-files");
+  });
+  window.addEventListener("drop", resetDraggingState);
+  window.addEventListener("dragend", resetDraggingState);
+  window.addEventListener("blur", resetDraggingState);
+
+  dropZone.addEventListener("dragenter", (e) => {
+    e.preventDefault();
+    if (!isFileDragEvent(e)) return;
+    dropZoneDragDepth += 1;
+    dropZone.classList.add("drag-over");
+    pulseDropZone();
+  });
   dropZone.addEventListener("dragover", (e) => {
     e.preventDefault();
-    dropZone.classList.add("drag-over");
+    if (!isFileDragEvent(e)) return;
+    if (!dropZone.classList.contains("drag-over")) {
+      dropZone.classList.add("drag-over");
+      pulseDropZone();
+    }
   });
   dropZone.addEventListener("dragleave", () => {
-    dropZone.classList.remove("drag-over");
+    dropZoneDragDepth = Math.max(0, dropZoneDragDepth - 1);
+    if (dropZoneDragDepth === 0) dropZone.classList.remove("drag-over");
   });
   dropZone.addEventListener("drop", (e) => {
     e.preventDefault();
-    dropZone.classList.remove("drag-over");
+    if (!isFileDragEvent(e)) return;
+    resetDraggingState();
+    if (hasGSAP() && !prefersReducedMotion()) window.gsap.to(dropZone, { scale: 1, duration: 0.2, ease: "power1.out" });
     mergeFiles(e.dataTransfer.files);
   });
 
@@ -1023,9 +1618,12 @@ function bindEvents() {
     const source = btn.getAttribute("data-source");
     const index = Number.parseInt(btn.getAttribute("data-index"), 10);
     if (!Number.isFinite(index)) return;
-    if (source === "upload") state.selectedFiles.splice(index, 1);
-    if (source === "path") state.pathQueue.splice(index, 1);
-    queueChanged();
+    const removeAction = () => {
+      if (source === "upload") state.selectedFiles.splice(index, 1);
+      if (source === "path") state.pathQueue.splice(index, 1);
+      queueChanged();
+    };
+    animateFileRemove(btn.closest(".file-preview-item"), removeAction);
   });
 
   pickDirBtn.addEventListener("click", pickOutputDir);
@@ -1084,8 +1682,11 @@ function bindEvents() {
 }
 
 (async function init() {
+  setSkeletonLoading(true);
   updateVersionBadge();
   initTheme();
+  decorateStaticActionButtons();
+  applyMicroInteractions();
   loadPreferences();
   loadHistory();
   renderHistory();
@@ -1097,7 +1698,12 @@ function bindEvents() {
   setBusy(false);
 
   await loadConfig();
+  await syncVersionFromHealth();
+  setSkeletonLoading(false);
   if (dbPathInput.value.trim()) scheduleDbValidation();
+  checkForUpdates();
+  animatePageEntrance();
+  refreshIcons();
 
   appendLog("info", "页面已就绪。");
 })();

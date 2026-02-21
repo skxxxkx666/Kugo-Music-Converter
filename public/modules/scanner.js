@@ -12,7 +12,10 @@ export function createScanner(ctx) {
     appendLog,
     appendPayloadError,
     formatBytes,
-    extBadgeClass,
+    renderExtBadge,
+    escapeHtml,
+    iconMarkup,
+    refreshIcons,
     copyTextToClipboard,
     onQueueChanged,
     pendingCount
@@ -23,9 +26,16 @@ export function createScanner(ctx) {
     state.selectedFolderPaths.forEach((folderPath, index) => {
       const tag = document.createElement("span");
       tag.className = "folder-tag";
-      tag.innerHTML = `${folderPath}<button class="tag-remove" data-index="${index}">x</button>`;
+      tag.setAttribute("role", "listitem");
+      tag.innerHTML = `
+        <span class="folder-tag-text">${escapeHtml(folderPath)}</span>
+        <button class="tag-remove" type="button" data-index="${index}" aria-label="移除扫描目录">
+          ${iconMarkup("x", "ui-icon", true)}
+        </button>
+      `;
       elements.selectedFolders.appendChild(tag);
     });
+    refreshIcons();
     elements.scanBtn.disabled = state.selectedFolderPaths.length === 0 || state.isBusy;
   }
 
@@ -69,16 +79,18 @@ export function createScanner(ctx) {
         all.push(file);
         const row = document.createElement("div");
         row.className = "file-name-item";
+        row.setAttribute("role", "listitem");
         row.innerHTML = `
-          <span class="${extBadgeClass(file.ext)}">${String(file.ext || "").replace(".", "").toUpperCase()}</span>
-          <span class="file-name-col" title="${file.fullPath || ""}">${file.name}</span>
+          ${renderExtBadge(file.ext)}
+          <span class="file-name-col" title="${escapeHtml(file.fullPath || "")}">${escapeHtml(file.name || "")}</span>
           <span class="file-size-col">${formatBytes(file.size)}</span>
-          <span class="file-date-col">${new Date(file.modTime).toLocaleString("zh-CN", { hour12: false })}</span>
+          <span class="file-date-col">${escapeHtml(new Date(file.modTime).toLocaleString("zh-CN", { hour12: false }))}</span>
         `;
         elements.fileNameList.appendChild(row);
       });
     });
 
+    refreshIcons();
     state.scanFiles = all;
   }
 
