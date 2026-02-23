@@ -364,39 +364,26 @@ async function fetchJson(url, options = {}) {
 }
 
 function updateVersionBadge(serverVersion = "") {
-  const frontendVersion = APP_VERSION;
+  const frontendVersion = String(APP_VERSION || "").trim();
   const backendVersion = String(serverVersion || "").trim();
-  const hasMismatch = Boolean(backendVersion && backendVersion !== frontendVersion);
-  const preview = isPreviewVersion(frontendVersion);
+  const frontendIsPlaceholder = !frontendVersion || frontendVersion === "dev";
+  const displayVersion = frontendIsPlaceholder && backendVersion ? backendVersion : frontendVersion || "dev";
+  const preview = isPreviewVersion(displayVersion);
 
   if (versionBadge) {
-    versionBadge.classList.toggle("preview", preview && !hasMismatch);
-    if (hasMismatch) {
-      versionBadge.textContent = `版本 前端 ${frontendVersion} / 后端 ${backendVersion}`;
-    } else if (preview) {
-      versionBadge.innerHTML = `版本 ${escapeHtml(frontendVersion)} <span class="version-badge-tag">预览</span>`;
-    } else {
-      versionBadge.textContent = `版本 ${frontendVersion}`;
-    }
+    versionBadge.classList.toggle("preview", preview);
+    versionBadge.textContent = displayVersion;
   }
 
   if (footerVersion) {
-    if (hasMismatch) {
-      footerVersion.textContent = `前端 ${frontendVersion} / 后端 ${backendVersion}`;
-    } else {
-      footerVersion.textContent = preview ? `${frontendVersion}（预览）` : frontendVersion;
-    }
+    footerVersion.textContent = displayVersion;
   }
 }
 
 async function syncVersionFromHealth() {
   try {
     const health = await fetchJson(`/api/health?_ts=${Date.now()}`);
-    const backendVersion = String(health?.version || "").trim();
-    updateVersionBadge(backendVersion);
-    if (backendVersion && backendVersion !== APP_VERSION) {
-      appendLog("warn", `版本不一致：前端 ${APP_VERSION}，后端 ${backendVersion}。建议刷新页面或重启启动器。`);
-    }
+    updateVersionBadge(String(health?.version || "").trim());
   } catch {
     updateVersionBadge();
   }

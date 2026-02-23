@@ -338,7 +338,7 @@
         window.__APP_VERSION__ = version;
         var script = document.createElement("script");
         script.type = "module";
-        script.src = "./app.js?v=" + encodeURIComponent(version);
+        script.src = "./app.js?v=" + encodeURIComponent(version) + "&_ts=" + Date.now();
         document.body.appendChild(script);
       })();
     </script>

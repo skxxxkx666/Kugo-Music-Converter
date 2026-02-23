@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -26,6 +27,8 @@ const (
 	serverShutdownTimeout = 15 * time.Second
 	nonSSEWriteTimeout    = 30 * time.Second
 )
+
+var appVersionAttrPattern = regexp.MustCompile(`data-app-version="[^"]*"`)
 
 type ConvertHandler struct {
 	cfg            *config.Config
@@ -85,9 +88,11 @@ func NewConvertHandler(cfg *config.Config, appVersion string) *ConvertHandler {
 
 	// A-602: cache index.html with version injected.
 	if raw, err := os.ReadFile(filepath.Join(publicDir, "index.html")); err == nil {
-		h.indexHTML = []byte(strings.Replace(string(raw),
-			`data-app-version="dev"`,
-			fmt.Sprintf(`data-app-version="%s"`, version), 1))
+		injected := appVersionAttrPattern.ReplaceAllString(
+			string(raw),
+			fmt.Sprintf(`data-app-version="%s"`, version),
+		)
+		h.indexHTML = []byte(injected)
 	}
 
 	return h

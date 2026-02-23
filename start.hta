@@ -106,7 +106,10 @@
         var textFile = fso.OpenTextFile(versionPath, 1, false, -2);
         var firstLine = textFile.AtEndOfStream ? "" : textFile.ReadLine();
         textFile.Close();
-        var version = trimText(firstLine).replace(/^\uFEFF/, "");
+        var version = trimText(firstLine)
+          .replace(/^\uFEFF/, "")
+          .replace(/^ï»¿/, "")
+          .replace(/^锘\?/, "");
         return version || "dev";
       } catch (e) {
         return "dev";

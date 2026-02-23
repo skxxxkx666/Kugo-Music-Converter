@@ -5,11 +5,12 @@ chcp 936 >nul
 set "ROOT=%~dp0"
 set "APP_VERSION=dev"
 if exist "%ROOT%VERSION" (
-    set /p APP_VERSION=<"%ROOT%VERSION"
-    if not defined APP_VERSION set "APP_VERSION=dev"
+    for /f "usebackq delims=" %%V in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "$v = Get-Content -LiteralPath '%ROOT%VERSION' -Raw -Encoding UTF8 -ErrorAction SilentlyContinue; if ($null -eq $v) { '' } else { (($v -replace '^\uFEFF', '') -split '\r?\n')[0].Trim() }"`) do (
+        if not "%%V"=="" set "APP_VERSION=%%V"
+        goto :version_read_done
+    )
 )
-rem Strip UTF-8 BOM if present
-set "APP_VERSION=%APP_VERSION:﻿=%"
+:version_read_done
 set "EXE=%ROOT%backend\bin\kugo-converter.exe"
 set "FFMPEG=%ROOT%tools\ffmpeg.exe"
 
