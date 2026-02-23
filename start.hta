@@ -103,10 +103,10 @@
       try {
         var versionPath = appDir + "\\VERSION";
         if (!fso.FileExists(versionPath)) return "dev";
-        var textFile = fso.OpenTextFile(versionPath, 1, false, 0);
+        var textFile = fso.OpenTextFile(versionPath, 1, false, -2);
         var firstLine = textFile.AtEndOfStream ? "" : textFile.ReadLine();
         textFile.Close();
-        var version = trimText(firstLine);
+        var version = trimText(firstLine).replace(/^\uFEFF/, "");
         return version || "dev";
       } catch (e) {
         return "dev";

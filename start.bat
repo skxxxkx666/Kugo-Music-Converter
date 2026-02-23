@@ -8,6 +8,8 @@ if exist "%ROOT%VERSION" (
     set /p APP_VERSION=<"%ROOT%VERSION"
     if not defined APP_VERSION set "APP_VERSION=dev"
 )
+rem Strip UTF-8 BOM if present
+set "APP_VERSION=%APP_VERSION:﻿=%"
 set "EXE=%ROOT%backend\bin\kugo-converter.exe"
 set "FFMPEG=%ROOT%tools\ffmpeg.exe"
 
