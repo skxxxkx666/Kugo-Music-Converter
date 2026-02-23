@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 var (
@@ -191,28 +192,34 @@ func (p *FileKeyMapProvider) ensureLoaded() error {
 	if err != nil {
 		return err
 	}
-	var key string
-	var val string
+	var keyBuilder strings.Builder
+	var valBuilder strings.Builder
 	stateKey := true
-	for _, ch := range string(data) {
+	for _, ch := range data {
 		switch ch {
 		case '$':
 			stateKey = false
 		case '\n':
+			key := keyBuilder.String()
+			val := valBuilder.String()
 			if key != "" || val != "" {
 				p.cache[key] = val
 			}
-			key, val, stateKey = "", "", true
+			keyBuilder.Reset()
+			valBuilder.Reset()
+			stateKey = true
 		case '\r':
 			// skip
 		default:
 			if stateKey {
-				key += string(ch)
+				keyBuilder.WriteByte(ch)
 			} else {
-				val += string(ch)
+				valBuilder.WriteByte(ch)
 			}
 		}
 	}
+	key := keyBuilder.String()
+	val := valBuilder.String()
 	if key != "" || val != "" {
 		p.cache[key] = val
 	}

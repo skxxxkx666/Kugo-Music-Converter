@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"runtime"
 	"strconv"
 
 	"gopkg.in/yaml.v3"
@@ -18,6 +19,36 @@ type Config struct {
 	ParseFormMemory int64  `yaml:"parse_form_memory" json:"parse_form_memory"`
 }
 
+const (
+	concurrencyHardLimit = 12
+	concurrencyMin       = 2
+)
+
+func RuntimeMaxConcurrency() int {
+	max := runtime.NumCPU()
+	if max <= 0 {
+		max = concurrencyMin
+	}
+	if max > concurrencyHardLimit {
+		max = concurrencyHardLimit
+	}
+	if max < concurrencyMin {
+		max = concurrencyMin
+	}
+	return max
+}
+
+func runtimeDefaultConcurrency() int {
+	defaultValue := runtime.NumCPU() / 2
+	if defaultValue < concurrencyMin {
+		defaultValue = concurrencyMin
+	}
+	if defaultValue > RuntimeMaxConcurrency() {
+		defaultValue = RuntimeMaxConcurrency()
+	}
+	return defaultValue
+}
+
 func DefaultConfig() *Config {
 	return &Config{
 		Addr:            ":8080",
@@ -26,7 +57,7 @@ func DefaultConfig() *Config {
 		MaxFileSize:     80 << 20,
 		MaxFiles:        500,
 		DefaultOutput:   "",
-		Concurrency:     3,
+		Concurrency:     runtimeDefaultConcurrency(),
 		ParseFormMemory: 32 << 20,
 	}
 }
@@ -85,7 +116,7 @@ func LoadConfig(configPath, addr, ffmpegBin string, addrSet, ffmpegSet bool) (*C
 	}
 
 	if cfg.Concurrency <= 0 {
-		cfg.Concurrency = 3
+		cfg.Concurrency = runtimeDefaultConcurrency()
 	}
 	if cfg.MaxFiles <= 0 {
 		cfg.MaxFiles = 500

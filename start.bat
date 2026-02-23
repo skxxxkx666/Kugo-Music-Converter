@@ -2,17 +2,22 @@
 setlocal EnableExtensions EnableDelayedExpansion
 chcp 936 >nul
 
-title Kugo Music Converter v0.2.3
+set "ROOT=%~dp0"
+set "APP_VERSION=dev"
+if exist "%ROOT%VERSION" (
+    set /p APP_VERSION=<"%ROOT%VERSION"
+    if not defined APP_VERSION set "APP_VERSION=dev"
+)
+set "EXE=%ROOT%backend\bin\kugo-converter.exe"
+set "FFMPEG=%ROOT%tools\ffmpeg.exe"
+
+title Kugo Music Converter %APP_VERSION%
 
 echo ======================================
-echo   Kugo Music Converter v0.2.3
+echo   Kugo Music Converter %APP_VERSION%
 echo   Support KGG/KGM/KGMA/VPR/NCM
 echo ======================================
 echo.
-
-set "ROOT=%~dp0"
-set "EXE=%ROOT%backend\bin\kugo-converter.exe"
-set "FFMPEG=%ROOT%tools\ffmpeg.exe"
 
 if not exist "%EXE%" (
     echo [ERROR] Missing kugo-converter.exe

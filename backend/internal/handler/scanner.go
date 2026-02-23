@@ -1,13 +1,20 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"kugo-music-converter/internal/service"
+)
+
+const (
+	scanTimeout  = 30 * time.Second
+	scanMaxFiles = 50000
 )
 
 type scanRequest struct {
@@ -23,6 +30,7 @@ func (h *ConvertHandler) HandleScanFolders(w http.ResponseWriter, r *http.Reques
 	}
 
 	var req scanRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, NewAppError(ErrScanInvalidPath, "请求体格式错误", err))
 		return
@@ -36,6 +44,10 @@ func (h *ConvertHandler) HandleScanFolders(w http.ResponseWriter, r *http.Reques
 	folders := make([]service.ScanFolderInfo, 0, len(req.Paths))
 	totalFiles := 0
 	var totalSize int64
+	remainingLimit := scanMaxFiles
+
+	ctx, cancel := context.WithTimeout(r.Context(), scanTimeout)
+	defer cancel()
 
 	for _, rawPath := range req.Paths {
 		path := strings.TrimSpace(rawPath)
@@ -51,7 +63,7 @@ func (h *ConvertHandler) HandleScanFolders(w http.ResponseWriter, r *http.Reques
 			continue
 		}
 
-		files, size, err := service.ScanSingleFolder(abs, req.Recursive, filter)
+		files, size, err := service.ScanSingleFolderCtx(ctx, abs, req.Recursive, filter, remainingLimit)
 		if err != nil {
 			continue
 		}
@@ -59,6 +71,10 @@ func (h *ConvertHandler) HandleScanFolders(w http.ResponseWriter, r *http.Reques
 		folders = append(folders, service.ScanFolderInfo{Path: abs, Files: files})
 		totalFiles += len(files)
 		totalSize += size
+		remainingLimit -= len(files)
+		if remainingLimit <= 0 || ctx.Err() != nil {
+			break
+		}
 	}
 
 	writeJSON(w, http.StatusOK, service.ScanResult{TotalFiles: totalFiles, TotalSize: totalSize, Folders: folders})

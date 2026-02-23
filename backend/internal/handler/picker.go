@@ -2,7 +2,9 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -10,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"kugo-music-converter/internal/service"
 )
@@ -46,19 +49,31 @@ func validateLocalFolderPath(raw string) (string, error) {
 	return absPath, nil
 }
 
-func runPowershell(command string) (string, error) {
-	cmd := exec.Command("powershell", "-NoProfile", "-STA", "-Command", command)
+func runPowershell(command string, errCode string) (string, error) {
+	const pickerTimeout = 5 * time.Minute
+	ctx, cancel := context.WithTimeout(context.Background(), pickerTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "powershell", "-NoProfile", "-STA", "-Command", command)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
+
 	if err := cmd.Run(); err != nil {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return "", NewAppError(errCode, "选择窗口超时，请重试。", err)
+		}
+		if errors.Is(ctx.Err(), context.Canceled) {
+			return "", NewAppError(errCode, "选择窗口已取消。", err)
+		}
 		msg := strings.TrimSpace(stderr.String())
 		if msg == "" {
 			msg = err.Error()
 		}
-		return "", NewAppError(ErrFolderPicker, msg, err)
+		return "", NewAppError(errCode, msg, err)
 	}
+
 	return strings.TrimSpace(stdout.String()), nil
 }
 
@@ -73,14 +88,19 @@ func (h *ConvertHandler) HandlePickDirectory(w http.ResponseWriter, r *http.Requ
 	}
 
 	path, err := runPowershell(
-		`Add-Type -AssemblyName System.Windows.Forms; ` +
-			`$d = New-Object System.Windows.Forms.FolderBrowserDialog; ` +
-			`$d.Description = '选择输出目录'; ` +
-			`$d.ShowNewFolderButton = $true; ` +
+		`Add-Type -AssemblyName System.Windows.Forms; `+
+			`$d = New-Object System.Windows.Forms.FolderBrowserDialog; `+
+			`$d.Description = '选择输出目录'; `+
+			`$d.ShowNewFolderButton = $true; `+
 			`if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $d.SelectedPath }`,
+		ErrFolderPicker,
 	)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if strings.TrimSpace(path) == "" {
+		writeJSON(w, http.StatusOK, map[string]any{"path": "", "cancelled": true})
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"path": path})
@@ -97,16 +117,17 @@ func (h *ConvertHandler) HandlePickDBFile(w http.ResponseWriter, r *http.Request
 	}
 
 	path, err := runPowershell(
-		`Add-Type -AssemblyName System.Windows.Forms; ` +
-			`$d = New-Object System.Windows.Forms.OpenFileDialog; ` +
-			`$d.Title = '选择 KGMusicV3.db'; ` +
-			`$d.Filter = 'KGMusicV3.db|KGMusicV3.db|SQLite 文件 (*.db)|*.db|所有文件 (*.*)|*.*'; ` +
-			`$d.Multiselect = $false; ` +
-			`$d.CheckFileExists = $true; ` +
+		`Add-Type -AssemblyName System.Windows.Forms; `+
+			`$d = New-Object System.Windows.Forms.OpenFileDialog; `+
+			`$d.Title = '选择 KGMusicV3.db'; `+
+			`$d.Filter = 'KGMusicV3.db|KGMusicV3.db|SQLite 文件 (*.db)|*.db|所有文件 (*.*)|*.*'; `+
+			`$d.Multiselect = $false; `+
+			`$d.CheckFileExists = $true; `+
 			`if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $d.FileName }`,
+		ErrDBPicker,
 	)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, NewAppError(ErrDBPicker, err.Error(), err))
+		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -147,6 +168,7 @@ func (h *ConvertHandler) HandleOpenFolder(w http.ResponseWriter, r *http.Request
 	var body struct {
 		Path string `json:"path"`
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, NewAppError("ERR_UNKNOWN", "请求格式错误", err))
 		return
@@ -169,9 +191,11 @@ func (h *ConvertHandler) HandleOpenFolder(w http.ResponseWriter, r *http.Request
 	}
 
 	cmd := exec.Command("explorer.exe", absPath)
-	if err := cmd.Start(); err == nil {
-		go func() { _ = cmd.Wait() }()
+	if err := cmd.Start(); err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"path": absPath, "opened": false, "error": err.Error()})
+		return
 	}
+	go func() { _ = cmd.Wait() }()
 
 	writeJSON(w, http.StatusOK, map[string]any{"path": absPath, "opened": true})
 }

@@ -1,7 +1,7 @@
 ﻿<!DOCTYPE html>
 <html>
 <head>
-  <title>酷狗音乐转换工具 v0.2.3</title>
+  <title>酷狗音乐转换工具</title>
   <meta charset="utf-8">
   <HTA:APPLICATION
     ID="KugoConverter"
@@ -67,7 +67,7 @@
   </style>
 </head>
 <body>
-  <h1>酷狗音乐转换工具 v0.2.3</h1>
+  <h1 id="appTitle">酷狗音乐转换工具</h1>
   <p class="subtitle">支持 KGG / KGM / KGMA / VPR / NCM 转换</p>
   <div id="status">正在启动服务...</div>
   <div class="btn-row">
@@ -86,6 +86,7 @@
     var port = 8080;
     var serverPid = 0;
     var browserOpened = false;
+    var appVersion = "dev";
 
     var healthTimer = null;
     var healthCheckInFlight = false;
@@ -93,6 +94,33 @@
     var healthFailThreshold = 3;
     var healthCheckIntervalMs = 5000;
     var lastRenderedStatus = "";
+
+    function trimText(value) {
+      return String(value || "").replace(/^\s+|\s+$/g, "");
+    }
+
+    function readAppVersion() {
+      try {
+        var versionPath = appDir + "\\VERSION";
+        if (!fso.FileExists(versionPath)) return "dev";
+        var textFile = fso.OpenTextFile(versionPath, 1, false, 0);
+        var firstLine = textFile.AtEndOfStream ? "" : textFile.ReadLine();
+        textFile.Close();
+        var version = trimText(firstLine);
+        return version || "dev";
+      } catch (e) {
+        return "dev";
+      }
+    }
+
+    function applyAppVersion(version) {
+      appVersion = trimText(version) || "dev";
+      document.title = "酷狗音乐转换工具 " + appVersion;
+      var titleEl = document.getElementById("appTitle");
+      if (titleEl) {
+        titleEl.innerText = "酷狗音乐转换工具 " + appVersion;
+      }
+    }
 
     function setStatus(lines) {
       var html = lines.join("");
@@ -249,7 +277,7 @@
     }
 
     function renderServerRunningStatus(payload) {
-      var ver = payload && payload.version ? payload.version : "unknown";
+      var ver = payload && payload.version ? payload.version : appVersion;
       var uptime = payload && payload.uptime ? payload.uptime : "0s";
       setStatus([
         '<div class="success">服务已启动并通过健康检查</div>',
@@ -412,6 +440,7 @@
       serverPid = 0;
     };
 
+    applyAppVersion(readAppVersion());
     startup();
   </script>
 </body>

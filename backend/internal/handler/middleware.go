@@ -15,6 +15,42 @@ type statusResponseWriter struct {
 	size   int
 }
 
+type writeTimeoutResponseWriter struct {
+	http.ResponseWriter
+	timeout time.Duration
+}
+
+func (w *writeTimeoutResponseWriter) setWriteDeadline() {
+	if w.timeout <= 0 {
+		return
+	}
+	ctrl := http.NewResponseController(w.ResponseWriter)
+	if err := ctrl.SetWriteDeadline(time.Now().Add(w.timeout)); err != nil {
+		logger.Debugf("set write deadline failed: %v", err)
+	}
+}
+
+func (w *writeTimeoutResponseWriter) WriteHeader(code int) {
+	w.setWriteDeadline()
+	w.ResponseWriter.WriteHeader(code)
+}
+
+func (w *writeTimeoutResponseWriter) Write(p []byte) (int, error) {
+	w.setWriteDeadline()
+	return w.ResponseWriter.Write(p)
+}
+
+func (w *writeTimeoutResponseWriter) Flush() {
+	w.setWriteDeadline()
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+func (w *writeTimeoutResponseWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
+}
+
 func (w *statusResponseWriter) WriteHeader(code int) {
 	w.status = code
 	w.ResponseWriter.WriteHeader(code)
@@ -60,6 +96,36 @@ func logRequest(next http.Handler) http.Handler {
 			time.Since(start),
 		)
 	})
+}
+
+func withWriteTimeout(next http.Handler, timeout time.Duration, skipFn func(*http.Request) bool) http.Handler {
+	if timeout <= 0 {
+		return next
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if skipFn != nil && skipFn(r) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		writer := &writeTimeoutResponseWriter{
+			ResponseWriter: w,
+			timeout:        timeout,
+		}
+		defer func() {
+			ctrl := http.NewResponseController(writer.ResponseWriter)
+			if err := ctrl.SetWriteDeadline(time.Time{}); err != nil {
+				logger.Debugf("reset write deadline failed: %v", err)
+			}
+		}()
+		next.ServeHTTP(writer, r)
+	})
+}
+
+func isSSERequest(r *http.Request) bool {
+	if r == nil {
+		return false
+	}
+	return r.URL.Path == "/api/convert-stream"
 }
 
 func getClientIP(r *http.Request) string {

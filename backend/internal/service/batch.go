@@ -25,22 +25,26 @@ type BatchFileError struct {
 }
 
 type BatchProgressEvent struct {
-	Phase   string `json:"phase"`
-	File    string `json:"file"`
-	Current int    `json:"current"`
-	Total   int    `json:"total"`
-	Percent int    `json:"percent"`
+	Phase          string `json:"phase"`
+	File           string `json:"file"`
+	Current        int    `json:"current"`
+	Total          int    `json:"total"`
+	Percent        int    `json:"percent"`
+	BytesProcessed int64  `json:"bytesProcessed"`
+	TotalBytes     int64  `json:"totalBytes"`
 }
 
 type BatchFileDoneEvent struct {
-	File    string          `json:"file"`
-	Input   string          `json:"input,omitempty"`
-	Status  string          `json:"status"`
-	Output  string          `json:"output,omitempty"`
-	Error   *BatchFileError `json:"error,omitempty"`
-	Current int             `json:"current"`
-	Total   int             `json:"total"`
-	Percent int             `json:"percent"`
+	File           string          `json:"file"`
+	Input          string          `json:"input,omitempty"`
+	Status         string          `json:"status"`
+	Output         string          `json:"output,omitempty"`
+	Error          *BatchFileError `json:"error,omitempty"`
+	Current        int             `json:"current"`
+	Total          int             `json:"total"`
+	Percent        int             `json:"percent"`
+	BytesProcessed int64           `json:"bytesProcessed"`
+	TotalBytes     int64           `json:"totalBytes"`
 }
 
 type BatchSummary struct {
@@ -68,17 +72,49 @@ type BatchOptions struct {
 	OnFileDone   func(BatchFileDoneEvent)
 }
 
-func computePercent(doneFiles int, filePercent int, total int) int {
-	if total <= 0 {
+func clampPercent(filePercent int) int {
+	if filePercent < 0 {
 		return 0
 	}
-	if filePercent < 0 {
-		filePercent = 0
-	}
 	if filePercent > 100 {
-		filePercent = 100
+		return 100
 	}
-	return ((doneFiles * 100) + filePercent) * 100 / (total * 100)
+	return filePercent
+}
+
+func computePercentByFiles(doneFiles int, filePercent int, totalFiles int) int {
+	if totalFiles <= 0 {
+		return 0
+	}
+	safeFilePercent := clampPercent(filePercent)
+	return ((doneFiles * 100) + safeFilePercent) * 100 / (totalFiles * 100)
+}
+
+func computePercent(doneBytes int64, currentFileBytes int64, filePercent int, totalBytes int64, doneFiles int, totalFiles int) (int, int64) {
+	if totalBytes > 0 {
+		if currentFileBytes < 0 {
+			currentFileBytes = 0
+		}
+		inFlight := (currentFileBytes * int64(clampPercent(filePercent))) / 100
+		processed := doneBytes + inFlight
+		if processed < 0 {
+			processed = 0
+		}
+		if processed > totalBytes {
+			processed = totalBytes
+		}
+		return int((processed * 100) / totalBytes), processed
+	}
+
+	percent := computePercentByFiles(doneFiles, filePercent, totalFiles)
+	processed := int64(doneFiles)
+	if processed < 0 {
+		processed = 0
+	}
+	if totalFiles > 0 && processed > int64(totalFiles) {
+		processed = int64(totalFiles)
+	}
+	return percent, processed
 }
 
 func RunBatch(ctx context.Context, opts BatchOptions) BatchSummary {
@@ -99,7 +135,15 @@ func RunBatch(ctx context.Context, opts BatchOptions) BatchSummary {
 	var completed int32
 	var success int32
 	var failed int32
+	var doneBytes int64
 	var cancelled atomic.Bool
+
+	var totalBytes int64
+	for _, item := range opts.Items {
+		if item.Size > 0 {
+			totalBytes += item.Size
+		}
+	}
 
 	results := make([]BatchFileDoneEvent, total)
 	jobs := make(chan BatchItem, total)
@@ -113,39 +157,75 @@ func RunBatch(ctx context.Context, opts BatchOptions) BatchSummary {
 
 	worker := func() {
 		defer wg.Done()
-		for item := range jobs {
+		for {
 			if opts.ShouldStop != nil && opts.ShouldStop() {
 				cancelled.Store(true)
-				continue
+				return
 			}
 			if ctx.Err() != nil {
 				cancelled.Store(true)
-				continue
+				return
+			}
+
+			var (
+				item BatchItem
+				ok   bool
+			)
+			select {
+			case <-ctx.Done():
+				cancelled.Store(true)
+				return
+			case item, ok = <-jobs:
+				if !ok {
+					return
+				}
+			}
+
+			if opts.ShouldStop != nil && opts.ShouldStop() {
+				cancelled.Store(true)
+				return
+			}
+			if ctx.Err() != nil {
+				cancelled.Store(true)
+				return
 			}
 
 			progress := func(phase string, filePercent int) {
 				if opts.OnProgress == nil {
 					return
 				}
-				done := int(atomic.LoadInt32(&completed))
+				doneFiles := int(atomic.LoadInt32(&completed))
+				done := atomic.LoadInt64(&doneBytes)
+				percent, processed := computePercent(done, item.Size, filePercent, totalBytes, doneFiles, total)
 				opts.OnProgress(BatchProgressEvent{
-					Phase:   phase,
-					File:    item.Name,
-					Current: item.Current,
-					Total:   total,
-					Percent: computePercent(done, filePercent, total),
+					Phase:          phase,
+					File:           item.Name,
+					Current:        item.Current,
+					Total:          total,
+					Percent:        percent,
+					BytesProcessed: processed,
+					TotalBytes:     totalBytes,
 				})
 			}
 
 			outputPath, err := opts.Convert(ctx, item, progress)
 			doneNow := int(atomic.AddInt32(&completed, 1))
 
+			itemBytes := item.Size
+			if itemBytes < 0 {
+				itemBytes = 0
+			}
+			doneBytesNow := atomic.AddInt64(&doneBytes, itemBytes)
+			donePercent, doneProcessed := computePercent(doneBytesNow, 0, 0, totalBytes, doneNow, total)
+
 			evt := BatchFileDoneEvent{
-				File:    item.Name,
-				Input:   item.OriginPath,
-				Current: item.Current,
-				Total:   total,
-				Percent: computePercent(doneNow, 0, total),
+				File:           item.Name,
+				Input:          item.OriginPath,
+				Current:        item.Current,
+				Total:          total,
+				Percent:        donePercent,
+				BytesProcessed: doneProcessed,
+				TotalBytes:     totalBytes,
 			}
 
 			if err != nil {
@@ -184,13 +264,18 @@ func RunBatch(ctx context.Context, opts BatchOptions) BatchSummary {
 			continue
 		}
 		item := opts.Items[i]
+		currentDoneFiles := int(atomic.LoadInt32(&completed))
+		currentDoneBytes := atomic.LoadInt64(&doneBytes)
+		percent, processed := computePercent(currentDoneBytes, 0, 0, totalBytes, currentDoneFiles, total)
 		evt = BatchFileDoneEvent{
-			File:    item.Name,
-			Input:   item.OriginPath,
-			Status:  "error",
-			Current: item.Current,
-			Total:   total,
-			Percent: computePercent(int(atomic.LoadInt32(&completed)), 0, total),
+			File:           item.Name,
+			Input:          item.OriginPath,
+			Status:         "error",
+			Current:        item.Current,
+			Total:          total,
+			Percent:        percent,
+			BytesProcessed: processed,
+			TotalBytes:     totalBytes,
 			Error: &BatchFileError{
 				Code:        "ERR_CANCELLED",
 				UserMessage: "转换已取消",

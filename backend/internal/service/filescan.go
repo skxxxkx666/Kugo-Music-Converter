@@ -1,6 +1,8 @@
 package service
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"sort"
@@ -49,7 +51,16 @@ func ParseExtFilter(raw string) map[string]struct{} {
 	return set
 }
 
+// ErrScanLimitReached indicates that the file count limit was reached during scanning.
+var ErrScanLimitReached = errors.New("scan: file count limit reached")
+
 func ScanSingleFolder(path string, recursive bool, extFilter map[string]struct{}) ([]ScanFileInfo, int64, error) {
+	return ScanSingleFolderCtx(context.Background(), path, recursive, extFilter, 0)
+}
+
+// ScanSingleFolderCtx scans a folder with context cancellation and an optional file count limit.
+// If maxFiles <= 0, no limit is applied.
+func ScanSingleFolderCtx(ctx context.Context, path string, recursive bool, extFilter map[string]struct{}, maxFiles int) ([]ScanFileInfo, int64, error) {
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		return nil, 0, err
@@ -59,6 +70,9 @@ func ScanSingleFolder(path string, recursive bool, extFilter map[string]struct{}
 	var totalSize int64
 
 	walkFn := func(current string, d os.DirEntry, walkErr error) error {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		if walkErr != nil {
 			return nil
 		}
@@ -92,10 +106,14 @@ func ScanSingleFolder(path string, recursive bool, extFilter map[string]struct{}
 			FullPath: current,
 		})
 		totalSize += st.Size()
+
+		if maxFiles > 0 && len(entries) >= maxFiles {
+			return filepath.SkipAll
+		}
 		return nil
 	}
 
-	if err := filepath.WalkDir(abs, walkFn); err != nil {
+	if err := filepath.WalkDir(abs, walkFn); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
 		return nil, 0, err
 	}
 

@@ -1,4 +1,7 @@
 ﻿export async function readSseStream(response, onEvent) {
+  if (!response.body) {
+    throw new Error("响应体为空，无法读取 SSE 流");
+  }
   const reader = response.body.getReader();
   const decoder = new TextDecoder("utf-8");
   let buffer = "";

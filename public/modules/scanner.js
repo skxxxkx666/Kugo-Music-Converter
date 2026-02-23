@@ -147,7 +147,7 @@ export function createScanner(ctx) {
     a.href = URL.createObjectURL(blob);
     a.download = `文件名列表_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
-    URL.revokeObjectURL(a.href);
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
     appendLog("success", "CSV 已导出。");
   }
 

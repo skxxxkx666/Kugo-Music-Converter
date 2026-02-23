@@ -10,16 +10,18 @@ var (
 	ekeyV2Key2   = [16]byte{0x2A, 0x2A, 0x23, 0x21, 0x28, 0x23, 0x24, 0x25, 0x26, 0x5E, 0x61, 0x31, 0x63, 0x5A, 0x2C, 0x54}
 )
 
+// decryptEkey normalizes v1/v2 ekey and returns raw QMC2 key bytes.
 func decryptEkey(ekey string) []byte {
 	if len(ekey) >= len(ekeyV2Prefix) && ekey[:len(ekeyV2Prefix)] == ekeyV2Prefix {
 		ekey = ekey[len(ekeyV2Prefix):]
-		b := teaCBCDecrypt([]byte(ekey), ekeyV2Key1)
-		b = teaCBCDecrypt(b, ekeyV2Key2)
+		b := teaCBCDecrypt([]byte(ekey), bytesToTEAKey(ekeyV2Key1))
+		b = teaCBCDecrypt(b, bytesToTEAKey(ekeyV2Key2))
 		return decryptEkeyV1(string(b))
 	}
 	return decryptEkeyV1(ekey)
 }
 
+// decryptEkeyV1 decodes base64 ekey and performs TEA-CBC decryption.
 func decryptEkeyV1(ekey string) []byte {
 	raw, err := base64.StdEncoding.DecodeString(ekey)
 	if err != nil || len(raw) < 8 {
@@ -42,27 +44,17 @@ func decryptEkeyV1(ekey string) []byte {
 }
 
 // --- TEA CBC (We implement only decrypt path used by ekey) ---
-func teaCBCDecrypt(cipher []byte, key interface{}) []byte {
+// teaCBCDecrypt decrypts QQMusic/Kugou TEA-CBC payload used by ekey.
+func teaCBCDecrypt(cipher []byte, key [4]uint32) []byte {
 	if len(cipher)%8 != 0 || len(cipher) < 16 {
 		return nil
-	}
-	var k [4]uint32
-	switch v := key.(type) {
-	case [16]byte:
-		// interpret as 4 uint32 in LE words from bytes
-		k[0] = (uint32(v[0])<<24 | uint32(v[1])<<16 | uint32(v[2])<<8 | uint32(v[3]))
-		k[1] = (uint32(v[4])<<24 | uint32(v[5])<<16 | uint32(v[6])<<8 | uint32(v[7]))
-		k[2] = (uint32(v[8])<<24 | uint32(v[9])<<16 | uint32(v[10])<<8 | uint32(v[11]))
-		k[3] = (uint32(v[12])<<24 | uint32(v[13])<<16 | uint32(v[14])<<8 | uint32(v[15]))
-	case [4]uint32:
-		k = v
 	}
 
 	var iv1, iv2 uint64
 	header := make([]byte, 16)
 	in := cipher
-	decryptRound(header[0:8], in[0:8], &iv1, &iv2, &k)
-	decryptRound(header[8:16], in[8:16], &iv1, &iv2, &k)
+	decryptRound(header[0:8], in[0:8], &iv1, &iv2, &key)
+	decryptRound(header[8:16], in[8:16], &iv1, &iv2, &key)
 	in = in[16:]
 
 	hdrSkip := 1 + int(header[0]&7) + 2
@@ -78,15 +70,24 @@ func teaCBCDecrypt(cipher []byte, key interface{}) []byte {
 		if p+8 > realPlain {
 			break
 		}
-		decryptRound(res[p:p+8], in[0:8], &iv1, &iv2, &k)
+		decryptRound(res[p:p+8], in[0:8], &iv1, &iv2, &key)
 		in = in[8:]
 		p += 8
 	}
 	if p < realPlain && len(in) >= 8 {
-		decryptRound(header[8:16], in[0:8], &iv1, &iv2, &k)
+		decryptRound(header[8:16], in[0:8], &iv1, &iv2, &key)
 		res[p] = header[8]
 	}
 	return res
+}
+
+func bytesToTEAKey(v [16]byte) [4]uint32 {
+	return [4]uint32{
+		(uint32(v[0]) << 24) | (uint32(v[1]) << 16) | (uint32(v[2]) << 8) | uint32(v[3]),
+		(uint32(v[4]) << 24) | (uint32(v[5]) << 16) | (uint32(v[6]) << 8) | uint32(v[7]),
+		(uint32(v[8]) << 24) | (uint32(v[9]) << 16) | (uint32(v[10]) << 8) | uint32(v[11]),
+		(uint32(v[12]) << 24) | (uint32(v[13]) << 16) | (uint32(v[14]) << 8) | uint32(v[15]),
+	}
 }
 
 func decryptRound(dst, block []byte, iv1, iv2 *uint64, key *[4]uint32) {
@@ -131,11 +132,4 @@ func beWrite64(dst []byte, v uint64) {
 	dst[5] = byte(v >> 16)
 	dst[6] = byte(v >> 8)
 	dst[7] = byte(v)
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

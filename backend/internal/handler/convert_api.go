@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -47,8 +48,14 @@ func copyStreamToFile(src io.Reader, dst string) (int64, error) {
 		return 0, err
 	}
 	defer f.Close()
-	n, err := io.Copy(f, src)
+
+	writer := bufio.NewWriterSize(f, 256*1024)
+	buf := make([]byte, 128*1024)
+	n, err := io.CopyBuffer(writer, src, buf)
 	if err != nil {
+		return n, err
+	}
+	if err := writer.Flush(); err != nil {
 		return n, err
 	}
 	return n, f.Sync()
@@ -66,25 +73,93 @@ func parseIntOrDefault(raw string, fallback int) int {
 	return n
 }
 
+func resolveInputPathWhitelistRoots() []string {
+	added := make(map[string]struct{})
+	roots := make([]string, 0, 3)
+
+	addRoot := func(path string) {
+		trimmed := strings.TrimSpace(path)
+		if trimmed == "" {
+			return
+		}
+		abs, err := filepath.Abs(trimmed)
+		if err != nil {
+			return
+		}
+		cleaned := filepath.Clean(abs)
+		key := strings.ToLower(cleaned)
+		if _, ok := added[key]; ok {
+			return
+		}
+		if st, err := os.Stat(cleaned); err != nil || !st.IsDir() {
+			return
+		}
+		added[key] = struct{}{}
+		roots = append(roots, cleaned)
+	}
+
+	if home, err := os.UserHomeDir(); err == nil {
+		addRoot(home)
+	}
+	addRoot(os.Getenv("USERPROFILE"))
+	addRoot(os.Getenv("HOME"))
+
+	return roots
+}
+
+func pathWithinWhitelist(path string, roots []string) bool {
+	cleanedPath := filepath.Clean(path)
+	for _, root := range roots {
+		rel, err := filepath.Rel(root, cleanedPath)
+		if err != nil {
+			continue
+		}
+		if rel == "." {
+			return true
+		}
+		if rel == ".." {
+			continue
+		}
+		if strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			continue
+		}
+		if filepath.IsAbs(rel) {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
 func uniqueOutputPath(path string) (string, error) {
-	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+	// 使用 O_CREATE|O_EXCL 原子创建文件，避免并发 TOCTOU 竞争
+	if f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644); err == nil {
+		_ = f.Close()
 		return path, nil
+	} else if !errors.Is(err, os.ErrExist) {
+		return path, nil // 目录不存在等其他错误，让后续流程处理
 	}
 
 	ext := filepath.Ext(path)
 	base := strings.TrimSuffix(path, ext)
 	for i := 1; i < 10000; i++ {
 		candidate := fmt.Sprintf("%s_%d%s", base, i, ext)
-		if _, err := os.Stat(candidate); errors.Is(err, os.ErrNotExist) {
+		if f, err := os.OpenFile(candidate, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644); err == nil {
+			_ = f.Close()
+			return candidate, nil
+		} else if !errors.Is(err, os.ErrExist) {
 			return candidate, nil
 		}
 	}
 	return "", NewAppError(ErrTranscodeFailed, "输出文件重名过多，无法生成唯一文件名", nil)
 }
 
-func parseInputPathItems(raw string) ([]service.BatchItem, error) {
+func parseInputPathItems(raw string, roots []string) ([]service.BatchItem, error) {
 	if strings.TrimSpace(raw) == "" {
 		return nil, nil
+	}
+	if len(roots) == 0 {
+		return nil, NewAppError(ErrInputPathDenied, "未找到可用的 inputPaths 白名单根目录", nil)
 	}
 
 	var paths []string
@@ -101,6 +176,9 @@ func parseInputPathItems(raw string) ([]service.BatchItem, error) {
 		abs, err := filepath.Abs(trimmed)
 		if err != nil {
 			continue
+		}
+		if !pathWithinWhitelist(abs, roots) {
+			return nil, NewAppError(ErrInputPathDenied, fmt.Sprintf("路径超出允许目录: %s", trimmed), nil)
 		}
 		st, err := os.Stat(abs)
 		if err != nil || !st.Mode().IsRegular() {
@@ -198,7 +276,7 @@ func (h *ConvertHandler) parseConvertRequest(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	pathItems, err := parseInputPathItems(r.FormValue("inputPaths"))
+	pathItems, err := parseInputPathItems(r.FormValue("inputPaths"), resolveInputPathWhitelistRoots())
 	if err != nil {
 		cleanup()
 		return nil, err
@@ -274,32 +352,33 @@ func (h *ConvertHandler) convertSingleItem(ctx context.Context, item service.Bat
 
 	ext := strings.ToLower(filepath.Ext(item.Name))
 	var (
-		rawPath     string
-		rawCleanup  func()
+		rawStream   io.ReadCloser
 		decryptErr  error
 		rawAudioExt string
+		audioReader io.Reader
 	)
 
 	if ext == ".kgg" {
 		if len(dbKeys) == 0 {
 			return "", NewAppError(ErrDBNotFound, "KGG 转换需要 KGMusicV3.db", nil)
 		}
-		rawPath, rawCleanup, decryptErr = h.decryptService.DecryptFileByExtWithMemKey(item.Path, dbKeys)
+		rawStream, decryptErr = h.decryptService.DecryptFileByExtWithMemKey(item.Path, dbKeys)
 	} else {
-		rawPath, rawCleanup, decryptErr = h.decryptService.DecryptFileByExt(item.Path)
+		rawStream, decryptErr = h.decryptService.DecryptFileByExt(item.Path)
 	}
 	if decryptErr != nil {
 		return "", NewAppError(detectErrorCode(decryptErr), decryptErr.Error(), decryptErr)
 	}
-	if rawCleanup != nil {
-		defer rawCleanup()
+	if rawStream == nil {
+		return "", NewAppError(ErrDecryptFailed, "解密返回空数据流", nil)
 	}
+	defer rawStream.Close()
 
 	if progress != nil {
 		progress("decrypt", 60)
 	}
 
-	rawAudioExt, decryptErr = service.DetectAudioExt(rawPath)
+	rawAudioExt, audioReader, decryptErr = service.DetectAudioExtFromReader(rawStream)
 	if decryptErr != nil {
 		return "", NewAppError(ErrDecryptFailed, "无法识别解密后的音频格式", decryptErr)
 	}
@@ -314,7 +393,8 @@ func (h *ConvertHandler) convertSingleItem(ctx context.Context, item service.Bat
 		if progress != nil {
 			progress("transcode", 80)
 		}
-		if err := service.CopyFile(rawPath, outputPath); err != nil {
+		if err := service.CopyReaderToFile(audioReader, outputPath); err != nil {
+			removeQuiet(outputPath)
 			return "", NewAppError(ErrTranscodeFailed, "写入输出文件失败", err)
 		}
 		if progress != nil {
@@ -334,11 +414,18 @@ func (h *ConvertHandler) convertSingleItem(ctx context.Context, item service.Bat
 
 	targetExt := "." + req.OutputFormat
 	if strings.EqualFold(rawAudioExt, targetExt) {
-		if err := service.CopyFile(rawPath, outputPath); err != nil {
+		if err := service.CopyReaderToFile(audioReader, outputPath); err != nil {
+			removeQuiet(outputPath)
 			return "", NewAppError(ErrTranscodeFailed, "写入输出文件失败", err)
 		}
 	} else {
-		if err := service.TranscodeToFormat(ctx, h.ffmpegPath, rawPath, outputPath, req.OutputFormat, req.MP3Quality); err != nil {
+		inputFormat := service.AudioExtToFFmpegFormat(rawAudioExt)
+		if inputFormat == "" {
+			removeQuiet(outputPath)
+			return "", NewAppError(ErrDecryptFailed, "解密后的音频格式暂不支持管道转码", nil)
+		}
+		if err := service.TranscodeReaderToFormat(ctx, h.ffmpegPath, audioReader, inputFormat, outputPath, req.OutputFormat, req.MP3Quality); err != nil {
+			removeQuiet(outputPath)
 			if ctx.Err() != nil {
 				return "", NewAppError(ErrCancelled, "任务已取消", ctx.Err())
 			}
@@ -450,6 +537,12 @@ func (h *ConvertHandler) HandleConvert(w http.ResponseWriter, r *http.Request) {
 	}
 	defer req.Cleanup()
 
+	if h.isShuttingDown() {
+		writeError(w, http.StatusServiceUnavailable, NewAppError(ErrRuntimeMissing, "服务正在关闭，请稍后重试", nil))
+		return
+	}
+
 	summary := h.executeBatch(r.Context(), req, func() bool { return false }, nil)
+	h.registerPreviewFiles(summary.Results)
 	writeJSON(w, http.StatusOK, summary)
 }

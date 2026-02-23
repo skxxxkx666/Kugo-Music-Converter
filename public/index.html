@@ -1,5 +1,5 @@
 ﻿<!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-app-version="dev">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body class="app-loading">
+    <a href="#dropZone" class="skip-link">跳到文件上传</a>
     <main class="container">
       <header class="hero">
         <div class="hero-top">
@@ -16,7 +17,7 @@
             <p class="subtitle">支持 KGG、KGM、KGMA、VPR、NCM → MP3/FLAC/WAV</p>
           </div>
           <div class="hero-actions">
-            <span class="version-badge" id="versionBadge">版本 v0.2.3</span>
+            <span class="version-badge" id="versionBadge">版本 --</span>
             <button
               id="themeToggleBtn"
               type="button"
@@ -32,6 +33,8 @@
 
       <div id="updateBannerHost" class="update-banner-host" aria-live="polite" aria-label="版本更新提示"></div>
       <div id="globalAlert" class="alert hidden" role="alert" aria-live="assertive" aria-atomic="true"></div>
+      <div id="toastHost" class="toast-host" aria-live="polite" aria-label="操作提示"></div>
+      <div id="srAnnouncer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
       <section id="loadingSkeleton" class="skeleton-screen" aria-label="页面加载中">
         <div class="skeleton-card">
@@ -52,8 +55,21 @@
         </div>
       </section>
 
-      <section class="card">
-        <h2>环境配置</h2>
+      <section class="card config-card" id="configCard">
+        <div class="row row-between config-header">
+          <h2>环境配置</h2>
+          <button
+            id="configToggleBtn"
+            type="button"
+            class="btn-secondary config-toggle-btn"
+            data-icon="panel-top-close"
+            aria-label="折叠环境配置"
+          >
+            折叠配置
+          </button>
+        </div>
+        <p id="configSummary" class="hint config-summary hidden"></p>
+        <div id="configBody" class="config-body">
 
         <label for="dbPath">KGMusicV3.db 路径</label>
         <div class="row">
@@ -114,6 +130,7 @@
         </div>
 
         <p id="runtimeStatus" class="hint" role="status" aria-live="polite">正在检测运行环境...</p>
+        </div>
       </section>
 
       <section class="card">
@@ -135,6 +152,12 @@
           />
         </div>
 
+        <div class="row row-between queue-toolbar">
+          <span class="queue-title">待转换队列</span>
+          <button id="clearQueueBtn" type="button" class="btn-secondary" data-icon="trash" aria-label="清空全部待转换文件">
+            清空全部
+          </button>
+        </div>
         <p id="fileSummary" class="hint" role="status" aria-live="polite">未选择文件</p>
         <div id="filePreviewList" class="file-preview-list" role="list" aria-label="待转换文件列表"></div>
 
@@ -198,18 +221,35 @@
           </div>
         </div>
 
+        <div id="successSection" class="success-section hidden">
+          <h3>成功文件试听</h3>
+          <div id="successList" class="success-list" role="list" aria-label="成功文件列表"></div>
+          <audio id="previewAudio" class="preview-audio hidden" controls preload="none"></audio>
+        </div>
+
         <div id="failedSection" class="failed-section hidden">
           <div class="row row-between">
             <h3>失败详情</h3>
-            <button
-              id="exportFailedBtn"
-              type="button"
-              class="btn-secondary"
-              data-icon="download"
-              aria-label="导出失败文件列表"
-            >
-              导出失败文件列表
-            </button>
+            <div class="row failed-actions">
+              <button
+                id="retryFailedBtn"
+                type="button"
+                class="btn-secondary"
+                data-icon="rotate-cw"
+                aria-label="重试全部失败文件"
+              >
+                重试全部失败
+              </button>
+              <button
+                id="exportFailedBtn"
+                type="button"
+                class="btn-secondary"
+                data-icon="download"
+                aria-label="导出失败文件列表"
+              >
+                导出失败文件列表
+              </button>
+            </div>
           </div>
           <div id="failedList" class="failed-list" role="list" aria-label="失败文件详情列表"></div>
         </div>
@@ -222,7 +262,7 @@
             导出日志
           </button>
         </div>
-        <div id="logBox" class="log-box" role="log" aria-live="polite"></div>
+        <div id="logBox" class="log-box" role="log" aria-live="off"></div>
       </section>
 
       <section class="card">
@@ -286,11 +326,21 @@
         </div>
       </section>
 
-      <footer class="footer">当前版本：<span id="footerVersion">v0.2.3</span></footer>
+      <footer class="footer">当前版本：<span id="footerVersion">--</span></footer>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
-    <script type="module" src="./app.js?v=v0.2.3"></script>
+    <script>
+      (function loadAppModule() {
+        var root = document.documentElement;
+        var version = (root.getAttribute("data-app-version") || "dev").replace(/^\s+|\s+$/g, "") || "dev";
+        window.__APP_VERSION__ = version;
+        var script = document.createElement("script");
+        script.type = "module";
+        script.src = "./app.js?v=" + encodeURIComponent(version);
+        document.body.appendChild(script);
+      })();
+    </script>
   </body>
 </html>

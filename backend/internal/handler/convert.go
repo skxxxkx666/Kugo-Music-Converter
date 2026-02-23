@@ -21,44 +21,57 @@ var (
 )
 
 const (
-	maxConcurrency        = 6
+	maxConcurrencyHardCap = 12
+	minConcurrency        = 2
 	serverShutdownTimeout = 15 * time.Second
+	nonSSEWriteTimeout    = 30 * time.Second
 )
 
 type ConvertHandler struct {
 	cfg            *config.Config
 	decryptService *service.DecryptService
 	startedAt      time.Time
+	version        string
 
 	baseDir          string
 	publicDir        string
 	ffmpegPath       string
 	defaultOutputDir string
+	indexHTML        []byte // cached index.html with version injected
 
 	dbMu     sync.RWMutex
 	dbPath   string
 	dbSource string
 	dbKeyMap map[string]string
 
+	previewMu    sync.RWMutex
+	previewFiles map[string]time.Time
+
 	shutdownCtx context.Context
 }
 
-func NewConvertHandler(cfg *config.Config) *ConvertHandler {
+func NewConvertHandler(cfg *config.Config, appVersion string) *ConvertHandler {
 	baseDir := mustResolveBaseDir()
 	publicDir := resolveDirectory(baseDir, cfg.PublicDir)
 	ffmpegPath := resolveFile(baseDir, cfg.FFmpegBin)
 	defaultOutputDir := resolveOutputDir(baseDir, cfg.DefaultOutput)
+	version := strings.TrimSpace(appVersion)
+	if version == "" {
+		version = "dev"
+	}
 
 	h := &ConvertHandler{
 		cfg:              cfg,
 		decryptService:   service.NewDecryptService(cfg),
 		startedAt:        time.Now(),
+		version:          version,
 		baseDir:          baseDir,
 		publicDir:        publicDir,
 		ffmpegPath:       ffmpegPath,
 		defaultOutputDir: defaultOutputDir,
 		dbSource:         "missing",
 		dbKeyMap:         map[string]string{},
+		previewFiles:     map[string]time.Time{},
 		shutdownCtx:      context.Background(),
 	}
 
@@ -69,15 +82,23 @@ func NewConvertHandler(cfg *config.Config) *ConvertHandler {
 	}
 
 	_ = os.MkdirAll(defaultOutputDir, 0o755)
+
+	// A-602: cache index.html with version injected.
+	if raw, err := os.ReadFile(filepath.Join(publicDir, "index.html")); err == nil {
+		h.indexHTML = []byte(strings.Replace(string(raw),
+			`data-app-version="dev"`,
+			fmt.Sprintf(`data-app-version="%s"`, version), 1))
+	}
+
 	return h
 }
 
-func StartServer(ctx context.Context, cfg *config.Config) error {
+func StartServer(ctx context.Context, cfg *config.Config, appVersion string) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
-	h := NewConvertHandler(cfg)
+	h := NewConvertHandler(cfg, appVersion)
 	h.setShutdownContext(ctx)
 
 	mux := http.NewServeMux()
@@ -92,9 +113,18 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 	mux.HandleFunc("/api/redetect-db", h.HandleRedetectDB)
 	mux.HandleFunc("/api/scan-folders", h.HandleScanFolders)
 	mux.HandleFunc("/api/open-folder", h.HandleOpenFolder)
+	mux.HandleFunc("/api/preview-file", h.HandlePreviewFile)
 
 	fileServer := http.FileServer(http.Dir(h.publicDir))
-	mux.Handle("/", fileServer)
+	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if (r.URL.Path == "/" || r.URL.Path == "/index.html") && len(h.indexHTML) > 0 {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Header().Set("Cache-Control", "no-cache")
+			_, _ = w.Write(h.indexHTML)
+			return
+		}
+		fileServer.ServeHTTP(w, r)
+	}))
 
 	logger.Infof("启动服务: addr=%s", cfg.Addr)
 	logger.Infof("静态目录: %s", h.publicDir)
@@ -103,7 +133,7 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 
 	srv := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           logRequest(mux),
+		Handler:           withWriteTimeout(logRequest(mux), nonSSEWriteTimeout, isSSERequest),
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       120 * time.Second,
 	}
@@ -127,171 +157,6 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 		return nil
 	}
 	return err
-}
-
-func mustResolveBaseDir() string {
-	exe, err := os.Executable()
-	if err == nil {
-		resolved, err := filepath.EvalSymlinks(exe)
-		if err == nil {
-			return filepath.Dir(resolved)
-		}
-		return filepath.Dir(exe)
-	}
-	cwd, cwdErr := os.Getwd()
-	if cwdErr != nil {
-		return "."
-	}
-	return cwd
-}
-
-func resolveDirectory(baseDir, raw string) string {
-	candidates := []string{}
-	if raw != "" {
-		if filepath.IsAbs(raw) {
-			candidates = append(candidates, raw)
-		} else {
-			candidates = append(candidates,
-				filepath.Join(baseDir, raw),
-				filepath.Join(baseDir, "..", raw),
-				filepath.Join(baseDir, "..", "..", raw),
-			)
-			if cwd, err := os.Getwd(); err == nil {
-				candidates = append(candidates, filepath.Join(cwd, raw))
-			}
-		}
-	}
-	if cwd, err := os.Getwd(); err == nil {
-		candidates = append(candidates, filepath.Join(cwd, "public"))
-	}
-	candidates = append(candidates,
-		filepath.Join(baseDir, "public"),
-		filepath.Join(baseDir, "..", "public"),
-		filepath.Join(baseDir, "..", "..", "public"),
-	)
-
-	for _, c := range candidates {
-		if st, err := os.Stat(c); err == nil && st.IsDir() {
-			abs, _ := filepath.Abs(c)
-			return abs
-		}
-	}
-	if len(candidates) > 0 {
-		abs, _ := filepath.Abs(candidates[0])
-		return abs
-	}
-	return filepath.Join(baseDir, "public")
-}
-
-func resolveFile(baseDir, raw string) string {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
-		trimmed = "tools/ffmpeg.exe"
-	}
-	if filepath.IsAbs(trimmed) {
-		return trimmed
-	}
-
-	candidates := []string{
-		filepath.Join(baseDir, trimmed),
-		filepath.Join(baseDir, "..", trimmed),
-		filepath.Join(baseDir, "..", "..", trimmed),
-	}
-	if cwd, err := os.Getwd(); err == nil {
-		candidates = append(candidates, filepath.Join(cwd, trimmed))
-	}
-
-	for _, c := range candidates {
-		if st, err := os.Stat(c); err == nil && !st.IsDir() {
-			abs, _ := filepath.Abs(c)
-			return abs
-		}
-	}
-
-	abs, _ := filepath.Abs(candidates[0])
-	return abs
-}
-
-func resolveOutputDir(baseDir, raw string) string {
-	trimmed := strings.TrimSpace(raw)
-	if filepath.IsAbs(trimmed) {
-		return trimmed
-	}
-
-	if trimmed == "" || trimmed == "downloads" {
-		if userProfile := os.Getenv("USERPROFILE"); userProfile != "" {
-			dl := filepath.Join(userProfile, "Downloads")
-			if st, err := os.Stat(dl); err == nil && st.IsDir() {
-				return dl
-			}
-		}
-		if home := os.Getenv("HOME"); home != "" {
-			dl := filepath.Join(home, "Downloads")
-			if st, err := os.Stat(dl); err == nil && st.IsDir() {
-				return dl
-			}
-		}
-		trimmed = "output"
-	}
-
-	projectRootAbs, _ := filepath.Abs(filepath.Join(baseDir, "..", ".."))
-	candidates := []string{
-		filepath.Join(projectRootAbs, trimmed),
-		filepath.Join(baseDir, trimmed),
-		filepath.Join(baseDir, "..", trimmed),
-	}
-	if cwd, err := os.Getwd(); err == nil {
-		candidates = append(candidates, filepath.Join(cwd, trimmed))
-	}
-
-	for _, c := range candidates {
-		if st, err := os.Stat(c); err == nil && st.IsDir() {
-			abs, _ := filepath.Abs(c)
-			return abs
-		}
-	}
-
-	abs, _ := filepath.Abs(candidates[0])
-	return abs
-}
-
-func containsInputExt(name string) bool {
-	ext := strings.ToLower(filepath.Ext(name))
-	for _, item := range supportedInputExts {
-		if ext == item {
-			return true
-		}
-	}
-	return false
-}
-
-func normalizeConcurrency(raw int, fallback int) int {
-	if raw <= 0 {
-		raw = fallback
-	}
-	if raw <= 0 {
-		raw = 1
-	}
-	if raw > maxConcurrency {
-		raw = maxConcurrency
-	}
-	return raw
-}
-
-func (h *ConvertHandler) runtimeMissingTools() []string {
-	missing := make([]string, 0, 1)
-	if st, err := os.Stat(h.ffmpegPath); err != nil || st.IsDir() {
-		missing = append(missing, "tools/ffmpeg.exe")
-	}
-	return missing
-}
-
-func cloneKeyMap(src map[string]string) map[string]string {
-	dup := make(map[string]string, len(src))
-	for k, v := range src {
-		dup[k] = v
-	}
-	return dup
 }
 
 func (h *ConvertHandler) setShutdownContext(ctx context.Context) {
@@ -330,115 +195,4 @@ func (h *ConvertHandler) contextWithShutdown(ctx context.Context) (context.Conte
 		}
 	}()
 	return combined, cancel
-}
-
-func (h *ConvertHandler) getDBStatus() service.DBStatus {
-	h.dbMu.RLock()
-	if h.dbPath != "" && len(h.dbKeyMap) > 0 {
-		defer h.dbMu.RUnlock()
-		return service.DBStatus{Found: true, Path: h.dbPath, Source: h.dbSource}
-	}
-	h.dbMu.RUnlock()
-	return service.DetectKGMusicDB(h.baseDir)
-}
-
-func (h *ConvertHandler) loadDBByPath(dbPath, source string) error {
-	validation := service.ValidateDBPath(dbPath)
-	if !validation.Valid {
-		return fmt.Errorf("db path invalid: %s", validation.Reason)
-	}
-	keys, err := service.LoadDBKeyMap(validation.Path)
-	if err != nil {
-		return err
-	}
-	h.dbMu.Lock()
-	h.dbPath = validation.Path
-	h.dbSource = source
-	h.dbKeyMap = keys
-	h.dbMu.Unlock()
-	return nil
-}
-
-func (h *ConvertHandler) getDBForRequest(requestPath string) (string, string, map[string]string, error) {
-	if strings.TrimSpace(requestPath) != "" {
-		validation := service.ValidateDBPath(requestPath)
-		if !validation.Valid {
-			return "", "", nil, NewAppError(ErrDBNotFound, "数据库路径无效", nil)
-		}
-
-		h.dbMu.RLock()
-		alreadyLoaded := h.dbPath == validation.Path && len(h.dbKeyMap) > 0
-		h.dbMu.RUnlock()
-
-		if !alreadyLoaded {
-			if err := h.loadDBByPath(validation.Path, "manual"); err != nil {
-				return "", "", nil, NewAppError(ErrDBNotFound, err.Error(), nil)
-			}
-		}
-	}
-
-	h.dbMu.RLock()
-	if h.dbPath != "" && len(h.dbKeyMap) > 0 {
-		path := h.dbPath
-		source := h.dbSource
-		keys := cloneKeyMap(h.dbKeyMap)
-		h.dbMu.RUnlock()
-		return path, source, keys, nil
-	}
-	h.dbMu.RUnlock()
-
-	status := service.DetectKGMusicDB(h.baseDir)
-	if !status.Found {
-		return "", "", nil, NewAppError(ErrDBNotFound, "未检测到 KGMusicV3.db", nil)
-	}
-	if err := h.loadDBByPath(status.Path, status.Source); err != nil {
-		return "", "", nil, NewAppError(ErrDBNotFound, err.Error(), nil)
-	}
-
-	h.dbMu.RLock()
-	defer h.dbMu.RUnlock()
-	return h.dbPath, h.dbSource, cloneKeyMap(h.dbKeyMap), nil
-}
-
-func detectErrorCode(err error) string {
-	switch {
-	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
-		return ErrCancelled
-	case errors.Is(err, service.ErrUnsupportedInput):
-		return ErrUnsupportedFormat
-	case errors.Is(err, service.ErrTranscodeProcess):
-		return ErrTranscodeFailed
-	case errors.Is(err, service.ErrMissingKGGKey):
-		return ErrDecryptKeyExpired
-	case errors.Is(err, service.ErrUnknownAudio), errors.Is(err, service.ErrDecryptProcess):
-		return ErrDecryptFailed
-	default:
-		return ErrDecryptFailed
-	}
-}
-
-func toBatchFileError(err error) *service.BatchFileError {
-	if err == nil {
-		return nil
-	}
-
-	var appErr *AppError
-	if errors.As(err, &appErr) {
-		return &service.BatchFileError{
-			Code:        appErr.Code,
-			UserMessage: appErr.UserMessage,
-			Suggestion:  appErr.Suggestion,
-			Severity:    appErr.Severity,
-			Detail:      appErr.Detail,
-		}
-	}
-
-	mapped := NewAppError(detectErrorCode(err), err.Error(), nil)
-	return &service.BatchFileError{
-		Code:        mapped.Code,
-		UserMessage: mapped.UserMessage,
-		Suggestion:  mapped.Suggestion,
-		Severity:    mapped.Severity,
-		Detail:      mapped.Detail,
-	}
 }

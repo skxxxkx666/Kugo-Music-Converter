@@ -18,14 +18,19 @@ backend/
 │   ├── config/
 │   │   └── config.go                # 配置处理 (YAML + 环境变量 + CLI)
 │   ├── handler/
-│   │   ├── convert.go               # 服务启动、路由注册、路径解析
+│   │   ├── convert.go               # 服务启动、路由注册、静态文件服务
 │   │   ├── convert_api.go           # POST /api/convert 同步转换
+│   │   ├── convert_db.go            # DB 加载与密钥查询
+│   │   ├── convert_paths.go         # 路径解析（baseDir/outputDir/ffmpeg）
+│   │   ├── convert_runtime.go       # 运行时工具函数与错误映射
 │   │   ├── sse.go                   # POST /api/convert-stream SSE 流式转换
 │   │   ├── config_api.go            # GET /api/config 配置查询
 │   │   ├── picker.go                # POST /api/pick-directory, /api/pick-db-file
 │   │   ├── db_api.go                # POST /api/validate-db-path, /api/redetect-db, /api/upload-db
 │   │   ├── scanner.go               # POST /api/scan-folders 目录扫描
-│   │   ├── error.go                 # 统一错误码定义 (15 个错误码)
+│   │   ├── preview.go               # GET /api/preview-file 试听服务
+│   │   ├── health.go                # GET /api/health 健康检查
+│   │   ├── error.go                 # 统一错误码定义
 │   │   └── middleware.go            # 请求日志中间件
 │   ├── logger/
 │   │   └── logger.go                # 分级日志 (DEBUG/INFO/WARN/ERROR)
@@ -34,7 +39,8 @@ backend/
 │   │   ├── transcode.go             # ffmpeg 转码 (MP3/FLAC/WAV)
 │   │   ├── batch.go                 # 并发批量转换引擎
 │   │   ├── dbfinder.go              # KGMusicV3.db 自动检测
-│   │   └── filescan.go              # 目录递归扫描
+│   │   ├── filescan.go              # 目录递归扫描
+│   │   └── errors.go                # 服务层错误定义
 │   └── utils/
 │       └── utils.go                 # 通用工具
 ├── bin/
@@ -121,6 +127,9 @@ KGG (酷狗 Hi-Res) 文件需要 KGMusicV3.db 中的密钥才能解密。
 | POST | `/api/pick-directory` | 打开文件夹选择对话框 |
 | POST | `/api/pick-db-file` | 打开 DB 文件选择对话框 |
 | POST | `/api/scan-folders` | 递归扫描目录中的加密文件 |
+| GET | `/api/preview-file` | 试听已转换的音频文件 |
+| GET | `/api/health` | 健康检查与版本信息 |
+| POST | `/api/open-folder` | 用资源管理器打开指定目录 |
 
 ## 6. 日志
 

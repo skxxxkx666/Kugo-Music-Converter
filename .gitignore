@@ -35,6 +35,9 @@ IMPROVEMENT-PLAN-*.md
 REFACTOR-PLAN-*.md
 BUGFIX-PLAN-*.md
 PREVIEW-PLAN-*.md
+REGRESSION-TEST-*.md
+ROADMAP-*.md
+PROJECT-CONTEXT.md
 
 # Release archives
 *.zip
@@ -46,3 +49,5 @@ PREVIEW-PLAN-*.md
 # Temporary files
 *.tmp
 *.bak
+
+release-notes.md

@@ -3,10 +3,9 @@ package handler
 import (
 	"net/http"
 	"runtime"
+	"strings"
 	"time"
 )
-
-const serverVersion = "v0.2.3"
 
 type healthResponse struct {
 	Status    string `json:"status"`
@@ -28,7 +27,7 @@ func (h *ConvertHandler) HandleHealth(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, healthResponse{
 		Status:    "ok",
-		Version:   serverVersion,
+		Version:   strings.TrimSpace(h.version),
 		Uptime:    uptime,
 		GoVersion: runtime.Version(),
 	})

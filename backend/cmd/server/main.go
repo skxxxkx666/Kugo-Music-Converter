@@ -7,8 +7,11 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
+	"time"
 
 	"kugo-music-converter/internal/config"
 	"kugo-music-converter/internal/handler"
@@ -16,7 +19,7 @@ import (
 )
 
 var (
-	version    = "dev"
+	version    = "v0.3.5"
 	buildDate  = "unknown"
 	commitHash = "unknown"
 	appEnv     = "unknown"
@@ -61,6 +64,8 @@ func main() {
 		log.Fatalf("加载配置失败: %v", err)
 	}
 
+	cleanupStaleTempFiles(1 * time.Hour)
+
 	logger.Infof("启动服务，监听地址: %s", cfg.Addr)
 	logger.Infof("FFmpeg 路径: %s", cfg.FFmpegBin)
 	logger.Infof("单文件最大大小: %d bytes", cfg.MaxFileSize)
@@ -74,12 +79,61 @@ func main() {
 		logger.Warnf("收到退出信号，开始优雅关闭服务...")
 	}()
 
-	if err := handler.StartServer(shutdownCtx, cfg); err != nil {
+	if err := handler.StartServer(shutdownCtx, cfg, version); err != nil {
 		logger.Errorf("服务启动失败: %v", err)
 		os.Exit(1)
 	}
 
 	logger.Infof("服务已关闭")
+}
+
+func cleanupStaleTempFiles(maxAge time.Duration) {
+	if maxAge <= 0 {
+		maxAge = time.Hour
+	}
+	tmpDir := os.TempDir()
+	if strings.TrimSpace(tmpDir) == "" {
+		return
+	}
+
+	patterns := []string{
+		"kgm_dec_*",
+		"kgg_dec_*",
+		"ncm_dec_*",
+		"kgdb_dec_*",
+		"kgg-upload-*",
+	}
+
+	cutoff := time.Now().Add(-maxAge)
+	removed := 0
+
+	for _, pattern := range patterns {
+		matches, err := filepath.Glob(filepath.Join(tmpDir, pattern))
+		if err != nil {
+			logger.Warnf("临时文件模式匹配失败: %s (%v)", pattern, err)
+			continue
+		}
+		for _, candidate := range matches {
+			st, err := os.Stat(candidate)
+			if err != nil || st.IsDir() {
+				continue
+			}
+			if st.ModTime().After(cutoff) {
+				continue
+			}
+			if err := os.Remove(candidate); err != nil {
+				logger.Warnf("删除残留临时文件失败: %s (%v)", candidate, err)
+				continue
+			}
+			removed++
+		}
+	}
+
+	if removed > 0 {
+		logger.Infof("已清理 %d 个残留临时文件（阈值: %s）", removed, maxAge)
+	} else {
+		logger.Debugf("未发现需要清理的残留临时文件")
+	}
 }
 
 func printHelp() {

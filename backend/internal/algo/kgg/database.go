@@ -10,7 +10,8 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// DecryptKGDatabaseToFile 将 KGMusicV3.db 解密为标准 SQLite 文件，返回临时路径
+// DecryptKGDatabaseToFile decrypts KGMusicV3.db into a temporary SQLite file.
+// It returns the temp path and a cleanup function.
 func DecryptKGDatabaseToFile(dbPath string) (string, func(), error) {
 	f, err := os.Open(dbPath)
 	if err != nil {
@@ -19,7 +20,7 @@ func DecryptKGDatabaseToFile(dbPath string) (string, func(), error) {
 	defer f.Close()
 
 	const pageSize = 1024
-	// 读取总大小
+	// read file size
 	info, err := f.Stat()
 	if err != nil {
 		return "", func() {}, err
@@ -37,6 +38,8 @@ func DecryptKGDatabaseToFile(dbPath string) (string, func(), error) {
 	out := tmpFile
 
 	buf := make([]byte, pageSize)
+	plainBuf := make([]byte, pageSize)
+	keyScratch := make([]byte, 0x18)
 	for page := 1; page <= pages; page++ {
 		if _, err := io.ReadFull(f, buf); err != nil {
 			out.Close()
@@ -44,7 +47,7 @@ func DecryptKGDatabaseToFile(dbPath string) (string, func(), error) {
 			return "", func() {}, err
 		}
 		var key, iv [16]byte
-		derivePageKey(&key, &iv, defaultMasterKey[:], uint32(page))
+		derivePageKeyWithScratch(&key, &iv, defaultMasterKey[:], uint32(page), keyScratch)
 		if page == 1 {
 			// Detect unencrypted
 			if isSQLiteHeader(buf) {
@@ -68,10 +71,18 @@ func DecryptKGDatabaseToFile(dbPath string) (string, func(), error) {
 				return "", func() {}, errors.New("invalid page1 header")
 			}
 			// swap and decrypt from offset 16
-			backup := make([]byte, 8)
-			copy(backup, buf[16:24])
 			copy(buf[16:], buf[8:16])
-			plain := aesCBCDecrypt(buf[16:], key[:], iv[:])
+			plain := plainBuf[:len(buf[16:])]
+			if derr := aesCBCDecryptTo(plain, buf[16:], key[:], iv[:]); derr != nil {
+				out.Close()
+				os.Remove(tmp)
+				return "", func() {}, derr
+			}
+			if len(plain) < 8 {
+				out.Close()
+				os.Remove(tmp)
+				return "", func() {}, errors.New("decrypted page1 too short")
+			}
 			// write header + plain
 			if _, err := out.Write(sqliteHeader); err != nil {
 				out.Close()
@@ -83,10 +94,13 @@ func DecryptKGDatabaseToFile(dbPath string) (string, func(), error) {
 				os.Remove(tmp)
 				return "", func() {}, err
 			}
-			if copy(backup, plain[:8]); string(backup) == string(plain[:8]) { /* ok */
-			}
 		} else {
-			plain := aesCBCDecrypt(buf, key[:], iv[:])
+			plain := plainBuf[:len(buf)]
+			if derr := aesCBCDecryptTo(plain, buf, key[:], iv[:]); derr != nil {
+				out.Close()
+				os.Remove(tmp)
+				return "", func() {}, derr
+			}
 			if _, err := out.Write(plain); err != nil {
 				out.Close()
 				os.Remove(tmp)
@@ -98,7 +112,7 @@ func DecryptKGDatabaseToFile(dbPath string) (string, func(), error) {
 	return tmp, func() { _ = os.Remove(tmp) }, nil
 }
 
-// ReadShareFileItems 读取解密后 sqlite 的映射表
+// ReadShareFileItems reads EncryptionKeyId -> EncryptionKey mapping from db.
 func ReadShareFileItems(sqlitePath string) (map[string]string, error) {
 	db, err := sql.Open("sqlite", sqlitePath)
 	if err != nil {
@@ -140,6 +154,14 @@ func isValidPage1Header(page1 []byte) bool {
 
 func derivePageKey(aesKey, aesIV *[16]byte, master []byte, pageNo uint32) {
 	buf := make([]byte, 0x18)
+	derivePageKeyWithScratch(aesKey, aesIV, master, pageNo, buf)
+}
+
+func derivePageKeyWithScratch(aesKey, aesIV *[16]byte, master []byte, pageNo uint32, buf []byte) {
+	if len(buf) < 0x18 {
+		panic("derivePageKeyWithScratch requires at least 24 bytes")
+	}
+	buf = buf[:0x18]
 	copy(buf[:16], master)
 	buf[16] = byte(pageNo)
 	buf[17] = byte(pageNo >> 8)
@@ -173,19 +195,28 @@ func derivePageKey(aesKey, aesIV *[16]byte, master []byte, pageNo uint32) {
 }
 
 // AES-128-CBC decrypt using Go stdlib crypto
-func aesCBCDecrypt(cipher, key, iv []byte) []byte {
-	// use crypto/aes + crypto/cipher
+func aesCBCDecrypt(cipher, key, iv []byte) ([]byte, error) {
+	dst := make([]byte, len(cipher))
+	if err := aesCBCDecryptTo(dst, cipher, key, iv); err != nil {
+		return nil, err
+	}
+	return dst, nil
+}
+
+func aesCBCDecryptTo(dst, cipher, key, iv []byte) error {
 	block, err := aesNewCipher(key)
 	if err != nil {
-		return nil
+		return err
 	}
 	if len(cipher)%block.BlockSize() != 0 {
-		return nil
+		return errors.New("cipher length is not aligned with block size")
 	}
-	dst := make([]byte, len(cipher))
+	if len(dst) != len(cipher) {
+		return errors.New("decrypt destination size does not match cipher size")
+	}
 	mode := newCBCDecrypter(block, iv)
 	mode.CryptBlocks(dst, cipher)
-	return dst
+	return nil
 }
 
 // small local wrappers to avoid importing directly in many places

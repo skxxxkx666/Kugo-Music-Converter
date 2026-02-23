@@ -27,6 +27,7 @@ func (h *ConvertHandler) HandleValidateDBPath(w http.ResponseWriter, r *http.Req
 	}
 
 	var req validateDBRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, NewAppError(ErrDBPathInvalid, "请求体格式错误", err))
 		return
