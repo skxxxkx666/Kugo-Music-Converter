@@ -55,8 +55,8 @@
     getPathQueue,
     setBusy,
     onQueueChanged,
-    clearQueue,
     queueFailedResults,
+    queueRetrySnapshotItems,
     onConvertComplete,
     announceCompletion
   } = callbacks;
@@ -65,6 +65,7 @@
   let sseFramePending = false;
   let successResults = [];
   let activePreviewIndex = -1;
+  let lastSubmittedSnapshot = [];
 
   function resetPreviewPlayer() {
     activePreviewIndex = -1;
@@ -290,11 +291,37 @@
   }
 
   function retryFailedFiles(items = state.failedResults) {
-    const added = queueFailedResults(items);
+    const failedItems = Array.isArray(items) ? items : [];
+    const snapshotRetryItems = [];
+    const unresolvedFailedItems = [];
+
+    failedItems.forEach((item) => {
+      const current = Number(item?.current);
+      if (!Number.isFinite(current) || current <= 0 || current > lastSubmittedSnapshot.length) {
+        unresolvedFailedItems.push(item);
+        return;
+      }
+      const snapshotItem = lastSubmittedSnapshot[current - 1];
+      if (!snapshotItem) {
+        unresolvedFailedItems.push(item);
+        return;
+      }
+      snapshotRetryItems.push(snapshotItem);
+    });
+
+    const addedFromSnapshot =
+      typeof queueRetrySnapshotItems === "function" ? queueRetrySnapshotItems(snapshotRetryItems) : 0;
+    const addedFromFallback =
+      typeof queueFailedResults === "function" ? queueFailedResults(unresolvedFailedItems) : 0;
+    const added = addedFromSnapshot + addedFromFallback;
+
     if (added > 0) {
       if (typeof onQueueChanged === "function") onQueueChanged();
       appendLog("success", `已将 ${added} 个失败文件重新加入队列。`);
       toastSuccess(`已加入 ${added} 个失败文件到队列`);
+    } else if (snapshotRetryItems.length > 0) {
+      appendLog("info", "失败文件已在当前队列中，可直接点击“开始转换”。");
+      toastInfo("失败文件已在队列中");
     } else {
       appendLog("warn", "没有可重试的失败文件（可能为上传文件或已在队列中）。");
       toastInfo("没有可重试的失败文件");
@@ -551,6 +578,33 @@
       return;
     }
 
+    const uploadSnapshot = getSelectedFiles().slice();
+    const pathSnapshot = getPathQueue().map((item) => ({ ...item }));
+    lastSubmittedSnapshot = items.map((item) => {
+      if (item.source === "upload") {
+        const file = uploadSnapshot[item.index];
+        if (!file) return null;
+        return {
+          source: "upload",
+          file,
+          name: file.name,
+          size: file.size
+        };
+      }
+      if (item.source === "path") {
+        const pathItem = pathSnapshot[item.index];
+        const fullPath = String(pathItem?.fullPath || item.fullPath || "").trim();
+        if (!fullPath) return null;
+        return {
+          source: "path",
+          fullPath,
+          name: pathItem?.name || item.name || fullPath.split(/[\\/]/).pop() || fullPath,
+          size: Number(pathItem?.size) || Number(item.size) || 0
+        };
+      }
+      return null;
+    });
+
     const formData = new FormData();
     formData.append("outputDir", outputDir);
     formData.append("outputFormat", outputFormatSelect.value);
@@ -562,9 +616,6 @@
     if (getPathQueue().length > 0) {
       formData.append("inputPaths", JSON.stringify(getPathQueue().map((item) => item.fullPath)));
     }
-
-    clearQueue();
-    if (typeof onQueueChanged === "function") onQueueChanged();
 
     resetProgressUI(items.length);
     appendLog("info", `开始转换，共 ${items.length} 个文件...`);

@@ -598,6 +598,7 @@ const converter = createConverterController({
     onQueueChanged: queueChanged,
     clearQueue: () => uploader.clearQueue(),
     queueFailedResults: (items) => uploader.queueFailedResults(items),
+    queueRetrySnapshotItems: (items) => uploader.queueRetrySnapshotItems(items),
     announceCompletion: a11yAnnouncer.announce,
     onConvertComplete: (summary) => {
       historyController.append(summary, {

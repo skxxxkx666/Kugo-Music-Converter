@@ -5,46 +5,55 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
-func TestPathWithinWhitelist(t *testing.T) {
-	root := t.TempDir()
-	inside := filepath.Join(root, "a", "b", "song.kgg")
-	outside := filepath.Join(t.TempDir(), "song.kgg")
-
-	if !pathWithinWhitelist(inside, []string{root}) {
-		t.Fatalf("expected inside path to pass whitelist check")
+func TestNormalizeLocalInputPath(t *testing.T) {
+	tmp := t.TempDir()
+	target := filepath.Join(tmp, "song.kgg")
+	got, err := normalizeLocalInputPath(target)
+	if err != nil {
+		t.Fatalf("normalizeLocalInputPath returned error: %v", err)
 	}
-	if pathWithinWhitelist(outside, []string{root}) {
-		t.Fatalf("expected outside path to be rejected")
+	if got == "" || !filepath.IsAbs(got) {
+		t.Fatalf("expected absolute path, got %q", got)
+	}
+
+	if _, err := normalizeLocalInputPath(""); err == nil {
+		t.Fatalf("expected empty path to fail")
+	}
+
+	if runtime.GOOS == "windows" {
+		if _, err := normalizeLocalInputPath(`\\server\share\song.kgg`); err == nil {
+			t.Fatalf("expected UNC path to fail on windows")
+		}
 	}
 }
 
-func TestParseInputPathItemsWhitelist(t *testing.T) {
-	allowedRoot := t.TempDir()
-	allowedFile := filepath.Join(allowedRoot, "ok.kgg")
+func TestParseInputPathItemsLocalAbsolute(t *testing.T) {
+	root := t.TempDir()
+	allowedFile := filepath.Join(root, "ok.kgg")
 	if err := os.WriteFile(allowedFile, []byte("x"), 0o644); err != nil {
-		t.Fatalf("write allowed file: %v", err)
+		t.Fatalf("write test file: %v", err)
 	}
 
 	rawAllowed, _ := json.Marshal([]string{allowedFile})
-	items, err := parseInputPathItems(string(rawAllowed), []string{allowedRoot})
+	items, err := parseInputPathItems(string(rawAllowed))
 	if err != nil {
-		t.Fatalf("parseInputPathItems allowed path error: %v", err)
+		t.Fatalf("parseInputPathItems returned error: %v", err)
 	}
 	if len(items) != 1 {
 		t.Fatalf("expected 1 item, got %d", len(items))
 	}
-
-	deniedFile := filepath.Join(t.TempDir(), "deny.kgg")
-	if err := os.WriteFile(deniedFile, []byte("x"), 0o644); err != nil {
-		t.Fatalf("write denied file: %v", err)
+	if items[0].Path != filepath.Clean(allowedFile) {
+		t.Fatalf("unexpected item path: %s", items[0].Path)
 	}
-	rawDenied, _ := json.Marshal([]string{deniedFile})
-	_, err = parseInputPathItems(string(rawDenied), []string{allowedRoot})
+
+	rawRelative, _ := json.Marshal([]string{"relative.kgg"})
+	_, err = parseInputPathItems(string(rawRelative))
 	if err == nil {
-		t.Fatalf("expected whitelist denied error")
+		t.Fatalf("expected relative path denied error")
 	}
 
 	var appErr *AppError

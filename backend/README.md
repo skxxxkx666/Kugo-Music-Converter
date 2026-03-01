@@ -131,6 +131,10 @@ KGG (酷狗 Hi-Res) 文件需要 KGMusicV3.db 中的密钥才能解密。
 | GET | `/api/health` | 健康检查与版本信息 |
 | POST | `/api/open-folder` | 用资源管理器打开指定目录 |
 
+补充说明（v0.3.6）：
+- `POST /api/scan-folders` 返回体新增 `warnings: string[]`，用于提示超时、权限不足、扫描截断等非致命问题。
+- `POST /api/convert` / `POST /api/convert-stream` 中 `inputPaths` 需为本机本地绝对路径（Windows 下不支持 UNC 路径）。
+
 ## 6. 日志
 
 - 格式：`YYYY-MM-DD HH:mm:ss [LEVEL] message`

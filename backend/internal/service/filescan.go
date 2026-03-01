@@ -27,6 +27,7 @@ type ScanResult struct {
 	TotalFiles int              `json:"totalFiles"`
 	TotalSize  int64            `json:"totalSize"`
 	Folders    []ScanFolderInfo `json:"folders"`
+	Warnings   []string         `json:"warnings,omitempty"`
 }
 
 func ParseExtFilter(raw string) map[string]struct{} {
@@ -68,6 +69,7 @@ func ScanSingleFolderCtx(ctx context.Context, path string, recursive bool, extFi
 
 	entries := make([]ScanFileInfo, 0, 32)
 	var totalSize int64
+	limitReached := false
 
 	walkFn := func(current string, d os.DirEntry, walkErr error) error {
 		if ctx.Err() != nil {
@@ -108,6 +110,7 @@ func ScanSingleFolderCtx(ctx context.Context, path string, recursive bool, extFi
 		totalSize += st.Size()
 
 		if maxFiles > 0 && len(entries) >= maxFiles {
+			limitReached = true
 			return filepath.SkipAll
 		}
 		return nil
@@ -124,5 +127,8 @@ func ScanSingleFolderCtx(ctx context.Context, path string, recursive bool, extFi
 		return strings.ToLower(entries[i].Name) < strings.ToLower(entries[j].Name)
 	})
 
+	if limitReached {
+		return entries, totalSize, ErrScanLimitReached
+	}
 	return entries, totalSize, nil
 }

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -73,62 +74,33 @@ func parseIntOrDefault(raw string, fallback int) int {
 	return n
 }
 
-func resolveInputPathWhitelistRoots() []string {
-	added := make(map[string]struct{})
-	roots := make([]string, 0, 3)
-
-	addRoot := func(path string) {
-		trimmed := strings.TrimSpace(path)
-		if trimmed == "" {
-			return
+func normalizeLocalInputPath(raw string) (string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", fmt.Errorf("路径不能为空")
+	}
+	if runtime.GOOS == "windows" {
+		if strings.HasPrefix(trimmed, `\\`) || strings.HasPrefix(trimmed, `//`) {
+			return "", fmt.Errorf("不支持网络共享路径")
 		}
-		abs, err := filepath.Abs(trimmed)
-		if err != nil {
-			return
-		}
-		cleaned := filepath.Clean(abs)
-		key := strings.ToLower(cleaned)
-		if _, ok := added[key]; ok {
-			return
-		}
-		if st, err := os.Stat(cleaned); err != nil || !st.IsDir() {
-			return
-		}
-		added[key] = struct{}{}
-		roots = append(roots, cleaned)
+	}
+	if !filepath.IsAbs(trimmed) {
+		return "", fmt.Errorf("必须使用绝对路径")
 	}
 
-	if home, err := os.UserHomeDir(); err == nil {
-		addRoot(home)
+	abs, err := filepath.Abs(trimmed)
+	if err != nil {
+		return "", fmt.Errorf("路径无效")
 	}
-	addRoot(os.Getenv("USERPROFILE"))
-	addRoot(os.Getenv("HOME"))
 
-	return roots
-}
-
-func pathWithinWhitelist(path string, roots []string) bool {
-	cleanedPath := filepath.Clean(path)
-	for _, root := range roots {
-		rel, err := filepath.Rel(root, cleanedPath)
-		if err != nil {
-			continue
+	if runtime.GOOS == "windows" {
+		volume := filepath.VolumeName(abs)
+		if len(volume) != 2 || volume[1] != ':' {
+			return "", fmt.Errorf("仅允许本地磁盘路径")
 		}
-		if rel == "." {
-			return true
-		}
-		if rel == ".." {
-			continue
-		}
-		if strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-			continue
-		}
-		if filepath.IsAbs(rel) {
-			continue
-		}
-		return true
 	}
-	return false
+
+	return filepath.Clean(abs), nil
 }
 
 func uniqueOutputPath(path string) (string, error) {
@@ -154,12 +126,9 @@ func uniqueOutputPath(path string) (string, error) {
 	return "", NewAppError(ErrTranscodeFailed, "输出文件重名过多，无法生成唯一文件名", nil)
 }
 
-func parseInputPathItems(raw string, roots []string) ([]service.BatchItem, error) {
+func parseInputPathItems(raw string) ([]service.BatchItem, error) {
 	if strings.TrimSpace(raw) == "" {
 		return nil, nil
-	}
-	if len(roots) == 0 {
-		return nil, NewAppError(ErrInputPathDenied, "未找到可用的 inputPaths 白名单根目录", nil)
 	}
 
 	var paths []string
@@ -169,16 +138,9 @@ func parseInputPathItems(raw string, roots []string) ([]service.BatchItem, error
 
 	items := make([]service.BatchItem, 0, len(paths))
 	for _, p := range paths {
-		trimmed := strings.TrimSpace(p)
-		if trimmed == "" {
-			continue
-		}
-		abs, err := filepath.Abs(trimmed)
-		if err != nil {
-			continue
-		}
-		if !pathWithinWhitelist(abs, roots) {
-			return nil, NewAppError(ErrInputPathDenied, fmt.Sprintf("路径超出允许目录: %s", trimmed), nil)
+		abs, normErr := normalizeLocalInputPath(p)
+		if normErr != nil {
+			return nil, NewAppError(ErrInputPathDenied, fmt.Sprintf("路径不可用: %s", strings.TrimSpace(p)), normErr)
 		}
 		st, err := os.Stat(abs)
 		if err != nil || !st.Mode().IsRegular() {
@@ -276,7 +238,7 @@ func (h *ConvertHandler) parseConvertRequest(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	pathItems, err := parseInputPathItems(r.FormValue("inputPaths"), resolveInputPathWhitelistRoots())
+	pathItems, err := parseInputPathItems(r.FormValue("inputPaths"))
 	if err != nil {
 		cleanup()
 		return nil, err

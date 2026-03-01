@@ -3,6 +3,8 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -44,6 +46,7 @@ func (h *ConvertHandler) HandleScanFolders(w http.ResponseWriter, r *http.Reques
 	folders := make([]service.ScanFolderInfo, 0, len(req.Paths))
 	totalFiles := 0
 	var totalSize int64
+	warnings := make([]string, 0, len(req.Paths))
 	remainingLimit := scanMaxFiles
 
 	ctx, cancel := context.WithTimeout(r.Context(), scanTimeout)
@@ -56,26 +59,46 @@ func (h *ConvertHandler) HandleScanFolders(w http.ResponseWriter, r *http.Reques
 		}
 		abs, err := filepath.Abs(path)
 		if err != nil {
+			warnings = append(warnings, fmt.Sprintf("路径无效：%s", path))
 			continue
 		}
 		st, err := os.Stat(abs)
 		if err != nil || !st.IsDir() {
+			warnings = append(warnings, fmt.Sprintf("目录不可访问：%s", abs))
 			continue
 		}
 
 		files, size, err := service.ScanSingleFolderCtx(ctx, abs, req.Recursive, filter, remainingLimit)
+		if len(files) > 0 {
+			folders = append(folders, service.ScanFolderInfo{Path: abs, Files: files})
+			totalFiles += len(files)
+			totalSize += size
+			remainingLimit -= len(files)
+		}
 		if err != nil {
+			if errors.Is(err, service.ErrScanLimitReached) {
+				warnings = append(warnings, fmt.Sprintf("扫描达到上限 %d 个文件，结果已截断。", scanMaxFiles))
+				break
+			}
+			if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				warnings = append(warnings, fmt.Sprintf("扫描超时：%s", abs))
+				break
+			}
+			warnings = append(warnings, fmt.Sprintf("扫描失败：%s", abs))
 			continue
 		}
-
-		folders = append(folders, service.ScanFolderInfo{Path: abs, Files: files})
-		totalFiles += len(files)
-		totalSize += size
-		remainingLimit -= len(files)
 		if remainingLimit <= 0 || ctx.Err() != nil {
+			if ctx.Err() != nil {
+				warnings = append(warnings, "扫描已提前终止（请求取消或超时）。")
+			}
 			break
 		}
 	}
 
-	writeJSON(w, http.StatusOK, service.ScanResult{TotalFiles: totalFiles, TotalSize: totalSize, Folders: folders})
+	writeJSON(w, http.StatusOK, service.ScanResult{
+		TotalFiles: totalFiles,
+		TotalSize:  totalSize,
+		Folders:    folders,
+		Warnings:   warnings,
+	})
 }

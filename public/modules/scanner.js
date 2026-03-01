@@ -110,7 +110,16 @@ export function createScanner(ctx) {
         })
       });
       renderScanResult(data);
-      appendLog("success", `扫描完成：共 ${data.totalFiles || 0} 个文件`);
+      const warnings = Array.isArray(data.warnings) ? data.warnings : [];
+      if (warnings.length > 0) {
+        appendLog("warn", `扫描完成：共 ${data.totalFiles || 0} 个文件，伴随 ${warnings.length} 条告警。`);
+        warnings.slice(0, 6).forEach((message) => appendLog("warn", String(message || "")));
+        if (warnings.length > 6) {
+          appendLog("warn", `其余 ${warnings.length - 6} 条告警已省略，请缩小扫描范围后重试。`);
+        }
+      } else {
+        appendLog("success", `扫描完成：共 ${data.totalFiles || 0} 个文件`);
+      }
     } catch (err) {
       appendPayloadError("扫描失败：", err.payload || { userMessage: err.message });
     } finally {

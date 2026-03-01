@@ -292,6 +292,56 @@ export function createUploaderController(options) {
     return added;
   }
 
+  function queueRetrySnapshotItems(snapshotItems) {
+    const list = Array.isArray(snapshotItems) ? snapshotItems : [];
+    if (list.length === 0) return 0;
+
+    const uploadSignatures = new Set(state.selectedFiles.map((file) => `${file.name}|${file.size}|${file.lastModified}`));
+    const existedPathSet = new Set(state.pathQueue.map((item) => item.fullPath));
+
+    let added = 0;
+    list.forEach((item) => {
+      if (pendingCount() + added >= state.maxFileCount) return;
+
+      if (item?.source === "upload") {
+        const file = item.file;
+        if (!file || typeof file.name !== "string") return;
+        const ext = getExt(file.name);
+        if (!state.supportedFormats.includes(ext)) return;
+        if (file.size > state.maxFileSizeMB * 1024 * 1024) return;
+
+        const sign = `${file.name}|${file.size}|${file.lastModified}`;
+        if (uploadSignatures.has(sign)) return;
+
+        state.selectedFiles.push(file);
+        uploadSignatures.add(sign);
+        added += 1;
+        return;
+      }
+
+      if (item?.source === "path") {
+        const fullPath = String(item.fullPath || "").trim();
+        if (!fullPath) return;
+        if (!/^[a-zA-Z]:\\|^\//.test(fullPath)) return;
+        if (existedPathSet.has(fullPath)) return;
+
+        const ext = getExt(fullPath);
+        if (!SUPPORTED_QUEUE_EXTS.includes(ext)) return;
+
+        state.pathQueue.push({
+          fullPath,
+          name: item.name || fullPath.split(/[\\/]/).pop() || fullPath,
+          size: Number(item.size) || 0,
+          ext
+        });
+        existedPathSet.add(fullPath);
+        added += 1;
+      }
+    });
+
+    return added;
+  }
+
   return {
     getPendingItems,
     pendingCount,
@@ -302,6 +352,7 @@ export function createUploaderController(options) {
     mergeFiles,
     clearQueue,
     removeAt,
-    queueFailedResults
+    queueFailedResults,
+    queueRetrySnapshotItems
   };
 }

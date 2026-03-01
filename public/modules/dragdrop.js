@@ -48,18 +48,34 @@ async function extractDroppedFiles(dataTransfer) {
   if (!supportsEntryApi) return fallbackFiles;
 
   const collected = [];
-  for (const item of items) {
-    const entry = item.webkitGetAsEntry?.();
-    if (!entry) {
-      const file = item.getAsFile?.();
-      if (file) collected.push(file);
-      continue;
+  try {
+    for (const item of items) {
+      const entry = item.webkitGetAsEntry?.();
+      if (!entry) {
+        const file = item.getAsFile?.();
+        if (file) collected.push(file);
+        continue;
+      }
+      // 非标准 API：目录拖放递归解析（Chrome/Edge/Firefox 兼容）。
+      await collectFilesFromEntry(entry, collected);
     }
-    // 非标准 API：目录拖放递归解析（Chrome/Edge/Firefox 兼容）。
-    await collectFilesFromEntry(entry, collected);
+  } catch {
+    return fallbackFiles;
   }
 
-  return collected.length > 0 ? collected : fallbackFiles;
+  const merged = [...fallbackFiles, ...collected];
+  if (merged.length === 0) return fallbackFiles;
+
+  const unique = [];
+  const seen = new Set();
+  merged.forEach((file) => {
+    const sign = `${file?.name || ""}|${file?.size || 0}|${file?.lastModified || 0}|${file?.type || ""}`;
+    if (seen.has(sign)) return;
+    seen.add(sign);
+    unique.push(file);
+  });
+
+  return unique;
 }
 
 export function createDragDropController(options) {
