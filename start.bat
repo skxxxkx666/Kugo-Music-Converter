@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
-chcp 936 >nul
+chcp 65001 >nul
 
 set "ROOT=%~dp0"
 set "APP_VERSION=dev"

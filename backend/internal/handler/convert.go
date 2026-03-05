@@ -124,6 +124,7 @@ func StartServer(ctx context.Context, cfg *config.Config, appVersion string) err
 	mux.HandleFunc("/api/scan-folders", h.HandleScanFolders)
 	mux.HandleFunc("/api/open-folder", h.HandleOpenFolder)
 	mux.HandleFunc("/api/preview-file", h.HandlePreviewFile)
+	mux.HandleFunc("/api/check-update", h.HandleCheckUpdate)
 
 	fileServer := http.FileServer(http.Dir(h.publicDir))
 	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

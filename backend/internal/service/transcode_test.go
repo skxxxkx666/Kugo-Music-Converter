@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -17,6 +18,10 @@ func TestDetectAudioExtFromReaderPreservesData(t *testing.T) {
 		{name: "flac", head: []byte("fLaC"), want: ".flac"},
 		{name: "mp3-id3", head: []byte("ID3"), want: ".mp3"},
 		{name: "mp3-frame", head: []byte{0xFF, 0xFB}, want: ".mp3"},
+		{name: "aac-adts", head: []byte{0xFF, 0xF1, 0x50, 0x80}, want: ".aac"},
+		{name: "m4a-ftyp", head: []byte{0x00, 0x00, 0x00, 0x20, 'f', 't', 'y', 'p', 'M', '4', 'A', ' '}, want: ".m4a"},
+		{name: "wma-asf", head: []byte{0x30, 0x26, 0xB2, 0x75}, want: ".wma"},
+		{name: "dff", head: []byte("FRM8"), want: ".dff"},
 		{name: "wav", head: []byte("RIFF"), want: ".wav"},
 		{name: "ogg", head: []byte("OggS"), want: ".ogg"},
 	}
@@ -53,8 +58,43 @@ func TestAudioExtToFFmpegFormat(t *testing.T) {
 	if got := AudioExtToFFmpegFormat(".ogg"); got != "ogg" {
 		t.Fatalf("ogg format mismatch: %s", got)
 	}
-	if got := AudioExtToFFmpegFormat(".aac"); got != "" {
+	if got := AudioExtToFFmpegFormat(".aac"); got != "aac" {
+		t.Fatalf("aac format mismatch: %s", got)
+	}
+	if got := AudioExtToFFmpegFormat(".m4a"); got != "mp4" {
+		t.Fatalf("m4a format mismatch: %s", got)
+	}
+	if got := AudioExtToFFmpegFormat(".wma"); got != "asf" {
+		t.Fatalf("wma format mismatch: %s", got)
+	}
+	if got := AudioExtToFFmpegFormat(".dff"); got != "dff" {
+		t.Fatalf("dff format mismatch: %s", got)
+	}
+	if got := AudioExtToFFmpegFormat(".unknown"); got != "" {
 		t.Fatalf("unknown ext should map to empty, got: %s", got)
+	}
+}
+
+func TestDetectAudioExtFromReaderUnknownHeaderHex(t *testing.T) {
+	_, _, err := DetectAudioExtFromReader(bytes.NewReader([]byte{0x00, 0x11, 0x22, 0x33}))
+	if err == nil {
+		t.Fatal("expected error for unknown header, got nil")
+	}
+	message := err.Error()
+	if !strings.Contains(message, "unknown audio header [hex: 00 11 22 33]") {
+		t.Fatalf("unexpected error message: %s", message)
+	}
+}
+
+func TestIsOGGCRCError(t *testing.T) {
+	if !IsOGGCRCError("[ogg] CRC mismatch!") {
+		t.Fatal("expected crc mismatch to be recognized")
+	}
+	if !IsOGGCRCError("Header processing failed") {
+		t.Fatal("expected header processing failed to be recognized")
+	}
+	if IsOGGCRCError("invalid data found when processing input") {
+		t.Fatal("did not expect generic error to be recognized as ogg crc")
 	}
 }
 

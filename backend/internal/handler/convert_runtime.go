@@ -103,14 +103,14 @@ func probeFFmpegBinary(ffmpegPath string) (bool, string) {
 		return false, "ffmpeg 探测超时（2s）"
 	}
 	if runErr != nil {
-		msg := compactMessage(string(output), 200)
+		msg := compactMessage(string(output), 400)
 		if msg == "" {
 			msg = runErr.Error()
 		}
 		return false, fmt.Sprintf("ffmpeg 执行失败: %s", msg)
 	}
 
-	msg := compactMessage(string(output), 200)
+	msg := compactMessage(string(output), 400)
 	if msg == "" {
 		msg = "ffmpeg 可用"
 	}

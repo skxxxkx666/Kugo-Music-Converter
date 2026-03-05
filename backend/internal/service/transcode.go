@@ -42,15 +42,40 @@ func detectAudioExtByHeader(head []byte) (string, error) {
 		return ".flac", nil
 	case bytes.HasPrefix(head, []byte("ID3")):
 		return ".mp3", nil
+	case len(head) >= 2 && head[0] == 0xFF && (head[1] == 0xF1 || head[1] == 0xF9):
+		return ".aac", nil
 	case len(head) >= 2 && head[0] == 0xFF && (head[1]&0xE0) == 0xE0:
 		return ".mp3", nil
+	case len(head) >= 8 && bytes.Equal(head[4:8], []byte("ftyp")):
+		return ".m4a", nil
+	case bytes.HasPrefix(head, []byte{0x30, 0x26, 0xB2, 0x75}):
+		return ".wma", nil
+	case bytes.HasPrefix(head, []byte("FRM8")):
+		return ".dff", nil
 	case bytes.HasPrefix(head, []byte("RIFF")):
 		return ".wav", nil
 	case bytes.HasPrefix(head, []byte("OggS")):
 		return ".ogg", nil
 	default:
-		return "", fmt.Errorf("%w: unknown audio header", ErrUnknownAudio)
+		return "", fmt.Errorf("%w: unknown audio header [hex: %s]", ErrUnknownAudio, formatHeaderHex(head, 16))
 	}
+}
+
+func formatHeaderHex(head []byte, limit int) string {
+	if len(head) == 0 {
+		return "empty"
+	}
+	if limit <= 0 || limit > len(head) {
+		limit = len(head)
+	}
+	var builder strings.Builder
+	for i := 0; i < limit; i++ {
+		if i > 0 {
+			builder.WriteByte(' ')
+		}
+		builder.WriteString(fmt.Sprintf("%02X", head[i]))
+	}
+	return builder.String()
 }
 
 func DetectAudioExt(path string) (string, error) {
@@ -88,6 +113,14 @@ func AudioExtToFFmpegFormat(ext string) string {
 		return "flac"
 	case ".mp3":
 		return "mp3"
+	case ".aac":
+		return "aac"
+	case ".m4a":
+		return "mp4"
+	case ".wma":
+		return "asf"
+	case ".dff":
+		return "dff"
 	case ".wav":
 		return "wav"
 	case ".ogg":
@@ -129,19 +162,8 @@ func CopyFile(src, dst string) error {
 	return CopyReaderToFile(in, dst)
 }
 
-func buildFFmpegArgsForReader(inputFormat, outputPath, outputFormat string, mp3Quality int) []string {
+func appendFFmpegOutputArgs(args []string, outputPath, outputFormat string, mp3Quality int) []string {
 	format := NormalizeOutputFormat(outputFormat)
-	args := []string{
-		"-y",
-		"-hide_banner",
-		"-loglevel", "error",
-		"-nostdin",
-		"-threads", "1",
-		"-f", inputFormat,
-		"-i", "pipe:0",
-		"-map_metadata", "0",
-	}
-
 	switch format {
 	case "wav":
 		return append(args, "-c:a", "pcm_s16le", outputPath)
@@ -152,11 +174,38 @@ func buildFFmpegArgsForReader(inputFormat, outputPath, outputFormat string, mp3Q
 	}
 }
 
-func TranscodeReaderToFormat(ctx context.Context, ffmpegBin string, input io.Reader, inputFormat, outputPath, outputFormat string, mp3Quality int) error {
-	if strings.TrimSpace(inputFormat) == "" {
-		return fmt.Errorf("%w: missing input format for pipe transcode", ErrTranscodeProcess)
+func buildFFmpegArgsForReader(inputFormat, outputPath, outputFormat string, mp3Quality int, tolerant bool) []string {
+	args := []string{
+		"-y",
+		"-hide_banner",
+		"-loglevel", "error",
+		"-nostdin",
+		"-threads", "1",
 	}
-	cmd := exec.CommandContext(ctx, ffmpegBin, buildFFmpegArgsForReader(inputFormat, outputPath, outputFormat, mp3Quality)...)
+	if tolerant {
+		args = append(args, "-err_detect", "ignore_err", "-fflags", "+discardcorrupt+genpts")
+	}
+	args = append(args, "-f", inputFormat, "-i", "pipe:0", "-map_metadata", "0")
+	return appendFFmpegOutputArgs(args, outputPath, outputFormat, mp3Quality)
+}
+
+func buildFFmpegArgsForFile(inputPath, outputPath, outputFormat string, mp3Quality int, tolerant bool) []string {
+	args := []string{
+		"-y",
+		"-hide_banner",
+		"-loglevel", "error",
+		"-nostdin",
+		"-threads", "1",
+	}
+	if tolerant {
+		args = append(args, "-err_detect", "ignore_err", "-fflags", "+discardcorrupt+genpts")
+	}
+	args = append(args, "-i", inputPath, "-map_metadata", "0")
+	return appendFFmpegOutputArgs(args, outputPath, outputFormat, mp3Quality)
+}
+
+func runFFmpeg(ctx context.Context, ffmpegBin string, args []string, input io.Reader) (string, error) {
+	cmd := exec.CommandContext(ctx, ffmpegBin, args...)
 	cmd.Stdin = input
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -165,48 +214,65 @@ func TranscodeReaderToFormat(ctx context.Context, ffmpegBin string, input io.Rea
 		if msg == "" {
 			msg = err.Error()
 		}
-		return fmt.Errorf("%w: %s", ErrTranscodeProcess, msg)
+		return msg, fmt.Errorf("%w: %s", ErrTranscodeProcess, msg)
+	}
+	return strings.TrimSpace(stderr.String()), nil
+}
+
+func transcodeReaderOnce(ctx context.Context, ffmpegBin string, input io.Reader, inputFormat, outputPath, outputFormat string, mp3Quality int, tolerant bool) (string, error) {
+	if strings.TrimSpace(inputFormat) == "" {
+		return "", fmt.Errorf("%w: missing input format for pipe transcode", ErrTranscodeProcess)
+	}
+	stderr, err := runFFmpeg(ctx, ffmpegBin, buildFFmpegArgsForReader(inputFormat, outputPath, outputFormat, mp3Quality, tolerant), input)
+	if err != nil {
+		return stderr, err
 	}
 	if _, err := os.Stat(outputPath); err != nil {
-		return fmt.Errorf("%w: ffmpeg output missing", ErrTranscodeProcess)
+		return stderr, fmt.Errorf("%w: ffmpeg output missing", ErrTranscodeProcess)
 	}
-	return nil
+	return stderr, nil
+}
+
+func TranscodeReaderToFormat(ctx context.Context, ffmpegBin string, input io.Reader, inputFormat, outputPath, outputFormat string, mp3Quality int) error {
+	_, err := transcodeReaderOnce(ctx, ffmpegBin, input, inputFormat, outputPath, outputFormat, mp3Quality, false)
+	return err
+}
+
+func transcodeFileOnce(ctx context.Context, ffmpegBin, inputPath, outputPath, outputFormat string, mp3Quality int, tolerant bool) (string, error) {
+	stderr, err := runFFmpeg(ctx, ffmpegBin, buildFFmpegArgsForFile(inputPath, outputPath, outputFormat, mp3Quality, tolerant), nil)
+	if err != nil {
+		return stderr, err
+	}
+	if _, err := os.Stat(outputPath); err != nil {
+		return stderr, fmt.Errorf("%w: ffmpeg output missing", ErrTranscodeProcess)
+	}
+	return stderr, nil
 }
 
 func TranscodeToFormat(ctx context.Context, ffmpegBin, inputPath, outputPath, outputFormat string, mp3Quality int) error {
-	format := NormalizeOutputFormat(outputFormat)
-	args := []string{
-		"-y",
-		"-hide_banner",
-		"-loglevel", "error",
-		"-nostdin",
-		"-threads", "1",
-		"-i", inputPath,
-		"-map_metadata", "0",
-	}
+	_, err := transcodeFileOnce(ctx, ffmpegBin, inputPath, outputPath, outputFormat, mp3Quality, false)
+	return err
+}
 
-	switch format {
-	case "wav":
-		args = append(args, "-c:a", "pcm_s16le", outputPath)
-	case "flac":
-		args = append(args, "-c:a", "flac", outputPath)
-	default:
-		args = append(args, "-q:a", fmt.Sprintf("%d", NormalizeMP3Quality(mp3Quality)), outputPath)
+func IsOGGCRCError(stderr string) bool {
+	msg := strings.ToLower(strings.TrimSpace(stderr))
+	if msg == "" {
+		return false
 	}
+	return strings.Contains(msg, "crc mismatch") || strings.Contains(msg, "header processing failed")
+}
 
-	cmd := exec.CommandContext(ctx, ffmpegBin, args...)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		msg := strings.TrimSpace(stderr.String())
-		if msg == "" {
-			msg = err.Error()
-		}
-		return fmt.Errorf("%w: %s", ErrTranscodeProcess, msg)
+func TranscodeToFormatWithRetry(ctx context.Context, ffmpegBin, inputPath, outputPath, outputFormat string, mp3Quality int) (bool, error) {
+	stderr, err := transcodeFileOnce(ctx, ffmpegBin, inputPath, outputPath, outputFormat, mp3Quality, false)
+	if err == nil {
+		return false, nil
 	}
-
-	if _, err := os.Stat(outputPath); err != nil {
-		return fmt.Errorf("%w: ffmpeg output missing", ErrTranscodeProcess)
+	if !IsOGGCRCError(stderr) {
+		return false, err
 	}
-	return nil
+	_, retryErr := transcodeFileOnce(ctx, ffmpegBin, inputPath, outputPath, outputFormat, mp3Quality, true)
+	if retryErr != nil {
+		return true, retryErr
+	}
+	return true, nil
 }

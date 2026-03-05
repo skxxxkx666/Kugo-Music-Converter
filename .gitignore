@@ -30,14 +30,8 @@ Desktop.ini
 # Go
 backend/vendor/
 
-# Internal development documents
-IMPROVEMENT-PLAN-*.md
-REFACTOR-PLAN-*.md
-BUGFIX-PLAN-*.md
-PREVIEW-PLAN-*.md
-REGRESSION-TEST-*.md
-ROADMAP-*.md
-PROJECT-CONTEXT.md
+# Internal development documents (archived in docs/)
+docs/
 
 # Release archives
 *.zip
@@ -55,5 +49,3 @@ TEST.html
 # Conversion logs
 转换日志*.txt
 *.bak
-
-release-notes.md

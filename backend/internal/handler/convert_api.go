@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 
+	"kugo-music-converter/internal/logger"
 	"kugo-music-converter/internal/service"
 )
 
@@ -342,6 +343,7 @@ func (h *ConvertHandler) convertSingleItem(ctx context.Context, item service.Bat
 
 	rawAudioExt, audioReader, decryptErr = service.DetectAudioExtFromReader(rawStream)
 	if decryptErr != nil {
+		logger.Warnf("音频格式识别失败: file=%s err=%v", item.Name, decryptErr)
 		return "", NewAppError(ErrDecryptFailed, "无法识别解密后的音频格式", decryptErr)
 	}
 
@@ -381,18 +383,53 @@ func (h *ConvertHandler) convertSingleItem(ctx context.Context, item service.Bat
 			return "", NewAppError(ErrTranscodeFailed, "写入输出文件失败", err)
 		}
 	} else {
-		inputFormat := service.AudioExtToFFmpegFormat(rawAudioExt)
-		if inputFormat == "" {
+		if service.AudioExtToFFmpegFormat(rawAudioExt) == "" {
 			removeQuiet(outputPath)
-			return "", NewAppError(ErrDecryptFailed, "解密后的音频格式暂不支持管道转码", nil)
+			return "", NewAppError(ErrDecryptFailed, "解密后的音频格式暂不支持转码", nil)
 		}
-		if err := service.TranscodeReaderToFormat(ctx, h.ffmpegPath, audioReader, inputFormat, outputPath, req.OutputFormat, req.MP3Quality); err != nil {
+
+		tmpAudioPath, tmpErr := createTempFile("kgg-raw-audio-", rawAudioExt)
+		if tmpErr != nil {
 			removeQuiet(outputPath)
+			return "", NewAppError("ERR_UNKNOWN", "创建临时音频文件失败", tmpErr)
+		}
+		defer removeQuiet(tmpAudioPath)
+
+		if err := service.CopyReaderToFile(audioReader, tmpAudioPath); err != nil {
+			removeQuiet(outputPath)
+			return "", NewAppError(ErrTranscodeFailed, "缓存解密音频失败", err)
+		}
+
+		usedTolerance, transErr := service.TranscodeToFormatWithRetry(ctx, h.ffmpegPath, tmpAudioPath, outputPath, req.OutputFormat, req.MP3Quality)
+		if transErr != nil {
+			removeQuiet(outputPath)
+
+			if usedTolerance && strings.EqualFold(rawAudioExt, ".ogg") {
+				fallbackPath, pathErr := uniqueOutputPath(filepath.Join(req.OutputDir, baseName+rawAudioExt))
+				if pathErr != nil {
+					return "", pathErr
+				}
+				copyErr := service.CopyFile(tmpAudioPath, fallbackPath)
+				if copyErr == nil {
+					logger.Warnf("OGG CRC 容错转码失败，已降级为原始 OGG 输出: file=%s output=%s", item.Name, fallbackPath)
+					if progress != nil {
+						progress("transcode", 100)
+					}
+					return fallbackPath, nil
+				}
+				removeQuiet(fallbackPath)
+				logger.Warnf("OGG copy 保底输出失败: file=%s err=%v", item.Name, copyErr)
+			}
+
 			if ctx.Err() != nil {
 				return "", NewAppError(ErrCancelled, "任务已取消", ctx.Err())
 			}
-			code := h.classifyTranscodeFailure(err.Error())
-			return "", NewAppError(code, err.Error(), err)
+			code := h.classifyTranscodeFailure(transErr.Error())
+			return "", NewAppError(code, transErr.Error(), transErr)
+		}
+
+		if usedTolerance {
+			logger.Warnf("触发 OGG CRC 容错重试并成功: file=%s", item.Name)
 		}
 	}
 

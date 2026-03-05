@@ -1,8 +1,15 @@
 ﻿const UPDATE_CHECK_KEY = "kgg-converter-update-cache-v1";
 const UPDATE_IGNORE_KEY = "kgg-converter-update-ignore-v1";
 const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
-const GITHUB_LATEST_RELEASE_API =
-  "https://api.github.com/repos/skxxxkx666/Kugo-Music-Converter/releases/latest";
+
+// Primary: backend proxy (bypasses browser-level network restrictions)
+const BACKEND_UPDATE_API = "/api/check-update";
+// Fallback: direct GitHub API mirrors (for when backend proxy also fails)
+const GITHUB_FALLBACK_URLS = [
+  "https://api.github.com/repos/skxxxkx666/Kugo-Music-Converter/releases/latest",
+  "https://ghfast.top/https://api.github.com/repos/skxxxkx666/Kugo-Music-Converter/releases/latest",
+  "https://gh-proxy.com/https://api.github.com/repos/skxxxkx666/Kugo-Music-Converter/releases/latest"
+];
 
 export function createUpdateController(options) {
   const {
@@ -56,13 +63,31 @@ export function createUpdateController(options) {
     }
   }
 
-  async function fetchLatestReleaseFromGitHub() {
-    const response = await fetch(GITHUB_LATEST_RELEASE_API, {
-      headers: {
-        Accept: "application/vnd.github+json"
-      }
-    });
-    if (!response.ok) throw new Error("update_check_failed");
+  function fetchWithTimeout(url, options, timeoutMs = 10000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
+  }
+
+  async function fetchFromBackendProxy() {
+    const response = await fetchWithTimeout(BACKEND_UPDATE_API, {}, 12000);
+    if (!response.ok) throw new Error(`backend proxy returned ${response.status}`);
+    const data = await response.json();
+    if (data.error) throw new Error(data.error);
+    return {
+      tagName: String(data?.tagName || data?.tag_name || "").trim(),
+      htmlUrl: String(data?.htmlUrl || data?.html_url || "").trim(),
+      body: String(data?.body || ""),
+      publishedAt: String(data?.publishedAt || data?.published_at || ""),
+      prerelease: Boolean(data?.prerelease)
+    };
+  }
+
+  async function fetchFromGitHubDirect(url) {
+    const response = await fetchWithTimeout(url, {
+      headers: { Accept: "application/vnd.github+json" }
+    }, 10000);
+    if (!response.ok) throw new Error(`GitHub API returned ${response.status}`);
     const data = await response.json();
     return {
       tagName: String(data?.tag_name || "").trim(),
@@ -71,6 +96,22 @@ export function createUpdateController(options) {
       publishedAt: String(data?.published_at || ""),
       prerelease: Boolean(data?.prerelease)
     };
+  }
+
+  async function fetchLatestReleaseFromGitHub() {
+    // Strategy 1: Backend proxy (best option — server-side, supports system proxy)
+    try {
+      return await fetchFromBackendProxy();
+    } catch { /* fall through */ }
+
+    // Strategy 2: Direct GitHub API mirrors (fallback)
+    for (const url of GITHUB_FALLBACK_URLS) {
+      try {
+        return await fetchFromGitHubDirect(url);
+      } catch { /* try next mirror */ }
+    }
+
+    throw new Error("all update check sources failed");
   }
 
   function hideUpdateBanner() {

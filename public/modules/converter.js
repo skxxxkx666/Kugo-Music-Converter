@@ -505,10 +505,18 @@
       if (data.status === "ok") {
         updateFileRow(data, "success", "- 转换成功");
         appendLog("success", `转换成功：${data.file}`);
+        if (outputFormatSelect.value !== "copy" && /\.ogg$/i.test(String(data.output || ""))) {
+          appendLog("warn", `已降级为原始格式输出：${data.file}（.ogg）`);
+        }
       } else {
         state.hasFileError = true;
         const userMsg = data.error?.userMessage || "转换失败";
+        const errCode = String(data.error?.code || "");
+        const errDetail = String(data.error?.detail || "");
         updateFileRow(data, "error", `- ${userMsg}`);
+        if (errCode === "ERR_TRANSCODE_FAILED" && /crc mismatch/i.test(errDetail)) {
+          appendLog("warn", "该文件解密成功但音频数据轻微损坏。可尝试选择“遵循原文件（不转码）”模式直接导出。");
+        }
         appendPayloadError(`转换失败：${data.file} | `, data.error);
       }
       return;
