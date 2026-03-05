@@ -48,6 +48,12 @@ PROJECT-CONTEXT.md
 
 # Temporary files
 *.tmp
+
+# Test prototypes
+TEST.html
+
+# Conversion logs
+转换日志*.txt
 *.bak
 
 release-notes.md

@@ -50,6 +50,11 @@ type ConvertHandler struct {
 	previewMu    sync.RWMutex
 	previewFiles map[string]time.Time
 
+	ffmpegProbeMu   sync.Mutex
+	ffmpegReady     bool
+	ffmpegMessage   string
+	ffmpegCheckedAt time.Time
+
 	shutdownCtx context.Context
 }
 

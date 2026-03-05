@@ -145,10 +145,6 @@ export function createDragDropController(options) {
       if (!isFileDragEvent(event)) return;
       resetDraggingState();
 
-      if (hasGSAP() && !prefersReducedMotion()) {
-        window.gsap.to(dropZone, { scale: 1, duration: 0.2, ease: "power1.out" });
-      }
-
       const droppedFiles = await extractDroppedFiles(event.dataTransfer);
       if (typeof onFilesDropped === "function") {
         await onFilesDropped(droppedFiles);

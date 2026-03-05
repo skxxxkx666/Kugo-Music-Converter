@@ -267,18 +267,39 @@ export function createUploaderController(options) {
 
   function queueFailedResults(failedItems) {
     const list = Array.isArray(failedItems) ? failedItems : [];
-    if (list.length === 0) return 0;
+    const stats = {
+      added: 0,
+      alreadyQueued: 0,
+      blockedByLimit: 0,
+      unresolved: 0,
+      unresolvedUploadRefLost: 0
+    };
+    if (list.length === 0) return stats;
 
     const existed = new Set(state.pathQueue.map((item) => item.fullPath));
-    let added = 0;
     list.forEach((item) => {
       const fullPath = String(item?.input || "").trim();
-      if (!fullPath) return;
-      if (!/^[a-zA-Z]:\\|^\//.test(fullPath)) return;
-      if (existed.has(fullPath)) return;
+      if (!fullPath) {
+        stats.unresolved += 1;
+        return;
+      }
+      if (!/^[a-zA-Z]:\\|^\//.test(fullPath)) {
+        stats.unresolved += 1;
+        return;
+      }
+      if (existed.has(fullPath)) {
+        stats.alreadyQueued += 1;
+        return;
+      }
       const ext = getExt(fullPath);
-      if (!SUPPORTED_QUEUE_EXTS.includes(ext)) return;
-      if (pendingCount() + added >= state.maxFileCount) return;
+      if (!SUPPORTED_QUEUE_EXTS.includes(ext)) {
+        stats.unresolved += 1;
+        return;
+      }
+      if (pendingCount() >= state.maxFileCount) {
+        stats.blockedByLimit += 1;
+        return;
+      }
 
       state.pathQueue.push({
         fullPath,
@@ -287,46 +308,83 @@ export function createUploaderController(options) {
         ext
       });
       existed.add(fullPath);
-      added += 1;
+      stats.added += 1;
     });
-    return added;
+    return stats;
   }
 
   function queueRetrySnapshotItems(snapshotItems) {
     const list = Array.isArray(snapshotItems) ? snapshotItems : [];
-    if (list.length === 0) return 0;
+    const stats = {
+      added: 0,
+      alreadyQueued: 0,
+      blockedByLimit: 0,
+      unresolved: 0,
+      unresolvedUploadRefLost: 0
+    };
+    if (list.length === 0) return stats;
 
     const uploadSignatures = new Set(state.selectedFiles.map((file) => `${file.name}|${file.size}|${file.lastModified}`));
     const existedPathSet = new Set(state.pathQueue.map((item) => item.fullPath));
 
-    let added = 0;
     list.forEach((item) => {
-      if (pendingCount() + added >= state.maxFileCount) return;
-
       if (item?.source === "upload") {
         const file = item.file;
-        if (!file || typeof file.name !== "string") return;
+        if (!file || typeof file.name !== "string") {
+          stats.unresolved += 1;
+          stats.unresolvedUploadRefLost += 1;
+          return;
+        }
         const ext = getExt(file.name);
-        if (!state.supportedFormats.includes(ext)) return;
-        if (file.size > state.maxFileSizeMB * 1024 * 1024) return;
+        if (!state.supportedFormats.includes(ext)) {
+          stats.unresolved += 1;
+          return;
+        }
+        if (file.size > state.maxFileSizeMB * 1024 * 1024) {
+          stats.unresolved += 1;
+          return;
+        }
 
         const sign = `${file.name}|${file.size}|${file.lastModified}`;
-        if (uploadSignatures.has(sign)) return;
+        if (uploadSignatures.has(sign)) {
+          stats.alreadyQueued += 1;
+          return;
+        }
+        if (pendingCount() >= state.maxFileCount) {
+          stats.blockedByLimit += 1;
+          return;
+        }
 
         state.selectedFiles.push(file);
         uploadSignatures.add(sign);
-        added += 1;
+        stats.added += 1;
         return;
       }
 
       if (item?.source === "path") {
         const fullPath = String(item.fullPath || "").trim();
-        if (!fullPath) return;
-        if (!/^[a-zA-Z]:\\|^\//.test(fullPath)) return;
-        if (existedPathSet.has(fullPath)) return;
+        if (!fullPath) {
+          stats.unresolved += 1;
+          return;
+        }
+        if (!/^[a-zA-Z]:\\|^\//.test(fullPath)) {
+          stats.unresolved += 1;
+          return;
+        }
+        if (existedPathSet.has(fullPath)) {
+          stats.alreadyQueued += 1;
+          return;
+        }
 
         const ext = getExt(fullPath);
-        if (!SUPPORTED_QUEUE_EXTS.includes(ext)) return;
+        if (!SUPPORTED_QUEUE_EXTS.includes(ext)) {
+          stats.unresolved += 1;
+          return;
+        }
+        if (pendingCount() >= state.maxFileCount) {
+          stats.blockedByLimit += 1;
+          return;
+        }
 
         state.pathQueue.push({
           fullPath,
@@ -335,11 +393,14 @@ export function createUploaderController(options) {
           ext
         });
         existedPathSet.add(fullPath);
-        added += 1;
+        stats.added += 1;
+        return;
       }
+
+      stats.unresolved += 1;
     });
 
-    return added;
+    return stats;
   }
 
   return {

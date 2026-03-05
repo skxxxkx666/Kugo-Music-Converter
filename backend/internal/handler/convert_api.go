@@ -391,7 +391,8 @@ func (h *ConvertHandler) convertSingleItem(ctx context.Context, item service.Bat
 			if ctx.Err() != nil {
 				return "", NewAppError(ErrCancelled, "任务已取消", ctx.Err())
 			}
-			return "", NewAppError(ErrTranscodeFailed, err.Error(), err)
+			code := h.classifyTranscodeFailure(err.Error())
+			return "", NewAppError(code, err.Error(), err)
 		}
 	}
 

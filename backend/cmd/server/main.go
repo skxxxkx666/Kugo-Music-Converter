@@ -1,4 +1,4 @@
-package main
+﻿package main
 
 import (
 	"context"
@@ -19,18 +19,18 @@ import (
 )
 
 var (
-	version    = "v0.3.6"
+	version    = "v0.3.8"
 	buildDate  = "unknown"
 	commitHash = "unknown"
 	appEnv     = "unknown"
 )
 
 func main() {
-	configPath := flag.String("config", "", "配置文件路径")
-	showHelp := flag.Bool("help", false, "显示帮助")
-	showVersion := flag.Bool("version", false, "显示版本信息")
-	showEnv := flag.Bool("env", false, "显示运行环境")
-	addr := flag.String("addr", ":8080", "服务监听地址")
+	configPath := flag.String("config", "", "閰嶇疆鏂囦欢璺緞")
+	showHelp := flag.Bool("help", false, "鏄剧ず甯姪")
+	showVersion := flag.Bool("version", false, "鏄剧ず鐗堟湰淇℃伅")
+	showEnv := flag.Bool("env", false, "鏄剧ず杩愯鐜")
+	addr := flag.String("addr", ":8080", "鏈嶅姟鐩戝惉鍦板潃")
 	ffmpegBin := flag.String("ffmpeg", "ffmpeg", "ffmpeg 可执行文件路径")
 
 	flag.Parse()
@@ -61,26 +61,26 @@ func main() {
 
 	cfg, err := config.LoadConfig(*configPath, *addr, *ffmpegBin, addrSet, ffmpegSet)
 	if err != nil {
-		log.Fatalf("加载配置失败: %v", err)
+		log.Fatalf("鍔犺浇閰嶇疆澶辫触: %v", err)
 	}
 
 	cleanupStaleTempFiles(1 * time.Hour)
 
-	logger.Infof("启动服务，监听地址: %s", cfg.Addr)
-	logger.Infof("FFmpeg 路径: %s", cfg.FFmpegBin)
-	logger.Infof("单文件最大大小: %d bytes", cfg.MaxFileSize)
-	logger.Infof("最大文件数: %d", cfg.MaxFiles)
+	logger.Infof("鍚姩鏈嶅姟锛岀洃鍚湴鍧€: %s", cfg.Addr)
+	logger.Infof("FFmpeg 璺緞: %s", cfg.FFmpegBin)
+	logger.Infof("鍗曟枃浠舵渶澶уぇ灏? %d bytes", cfg.MaxFileSize)
+	logger.Infof("鏈€澶ф枃浠舵暟: %d", cfg.MaxFiles)
 
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	go func() {
 		<-shutdownCtx.Done()
-		logger.Warnf("收到退出信号，开始优雅关闭服务...")
+		logger.Warnf("鏀跺埌閫€鍑轰俊鍙凤紝寮€濮嬩紭闆呭叧闂湇鍔?..")
 	}()
 
 	if err := handler.StartServer(shutdownCtx, cfg, version); err != nil {
-		logger.Errorf("服务启动失败: %v", err)
+		logger.Errorf("鏈嶅姟鍚姩澶辫触: %v", err)
 		os.Exit(1)
 	}
 
@@ -110,7 +110,7 @@ func cleanupStaleTempFiles(maxAge time.Duration) {
 	for _, pattern := range patterns {
 		matches, err := filepath.Glob(filepath.Join(tmpDir, pattern))
 		if err != nil {
-			logger.Warnf("临时文件模式匹配失败: %s (%v)", pattern, err)
+			logger.Warnf("涓存椂鏂囦欢妯″紡鍖归厤澶辫触: %s (%v)", pattern, err)
 			continue
 		}
 		for _, candidate := range matches {
@@ -122,7 +122,7 @@ func cleanupStaleTempFiles(maxAge time.Duration) {
 				continue
 			}
 			if err := os.Remove(candidate); err != nil {
-				logger.Warnf("删除残留临时文件失败: %s (%v)", candidate, err)
+				logger.Warnf("鍒犻櫎娈嬬暀涓存椂鏂囦欢澶辫触: %s (%v)", candidate, err)
 				continue
 			}
 			removed++
@@ -132,29 +132,30 @@ func cleanupStaleTempFiles(maxAge time.Duration) {
 	if removed > 0 {
 		logger.Infof("已清理 %d 个残留临时文件（阈值: %s）", removed, maxAge)
 	} else {
-		logger.Debugf("未发现需要清理的残留临时文件")
+		logger.Debugf("鏈彂鐜伴渶瑕佹竻鐞嗙殑娈嬬暀涓存椂鏂囦欢")
 	}
 }
 
 func printHelp() {
-	fmt.Println("Kugo 音频解密转换服务")
-	fmt.Println("用法: server [选项]")
+	fmt.Println("Kugo 闊抽瑙ｅ瘑杞崲鏈嶅姟")
+	fmt.Println("鐢ㄦ硶: server [閫夐」]")
 	fmt.Println()
 	flag.PrintDefaults()
 	fmt.Println()
-	fmt.Println("示例:")
+	fmt.Println("绀轰緥:")
 	fmt.Println("  server --addr :8080 --ffmpeg tools/ffmpeg.exe")
 }
 
 func printVersion() {
-	fmt.Printf("Kugo 音频解密转换服务\n")
-	fmt.Printf("版本: %s\n", version)
-	fmt.Printf("构建日期: %s\n", buildDate)
-	fmt.Printf("Git 提交: %s\n", commitHash)
-	fmt.Printf("Go 版本: %s\n", runtime.Version())
-	fmt.Printf("系统架构: %s/%s\n", runtime.GOOS, runtime.GOARCH)
+	fmt.Printf("Kugo 闊抽瑙ｅ瘑杞崲鏈嶅姟\n")
+	fmt.Printf("鐗堟湰: %s\n", version)
+	fmt.Printf("鏋勫缓鏃ユ湡: %s\n", buildDate)
+	fmt.Printf("Git 鎻愪氦: %s\n", commitHash)
+	fmt.Printf("Go 鐗堟湰: %s\n", runtime.Version())
+	fmt.Printf("绯荤粺鏋舵瀯: %s/%s\n", runtime.GOOS, runtime.GOARCH)
 }
 
 func printEnv() {
-	fmt.Printf("当前运行环境: %s\n", appEnv)
+	fmt.Printf("褰撳墠杩愯鐜: %s\n", appEnv)
 }
+

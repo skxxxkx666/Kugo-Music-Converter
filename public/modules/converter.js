@@ -66,6 +66,7 @@
   let successResults = [];
   let activePreviewIndex = -1;
   let lastSubmittedSnapshot = [];
+  let retryThrottleUntil = 0;
 
   function resetPreviewPlayer() {
     activePreviewIndex = -1;
@@ -291,39 +292,83 @@
   }
 
   function retryFailedFiles(items = state.failedResults) {
+    const now = Date.now();
+    if (now < retryThrottleUntil) {
+      return;
+    }
+    retryThrottleUntil = now + 600;
+
     const failedItems = Array.isArray(items) ? items : [];
     const snapshotRetryItems = [];
     const unresolvedFailedItems = [];
+    let unresolvedUploadRefLost = 0;
+
+    const normalizeRetryStats = (raw) => {
+      if (Number.isFinite(raw)) {
+        return { added: Math.max(0, raw), alreadyQueued: 0, blockedByLimit: 0, unresolved: 0, unresolvedUploadRefLost: 0 };
+      }
+      return {
+        added: Number(raw?.added) || 0,
+        alreadyQueued: Number(raw?.alreadyQueued) || 0,
+        blockedByLimit: Number(raw?.blockedByLimit) || 0,
+        unresolved: Number(raw?.unresolved) || 0,
+        unresolvedUploadRefLost: Number(raw?.unresolvedUploadRefLost) || 0
+      };
+    };
 
     failedItems.forEach((item) => {
       const current = Number(item?.current);
       if (!Number.isFinite(current) || current <= 0 || current > lastSubmittedSnapshot.length) {
+        const inputPath = String(item?.input || "").trim();
+        if (!/^[a-zA-Z]:\\|^\//.test(inputPath)) {
+          unresolvedUploadRefLost += 1;
+        }
         unresolvedFailedItems.push(item);
         return;
       }
       const snapshotItem = lastSubmittedSnapshot[current - 1];
       if (!snapshotItem) {
+        unresolvedUploadRefLost += 1;
         unresolvedFailedItems.push(item);
         return;
       }
       snapshotRetryItems.push(snapshotItem);
     });
 
-    const addedFromSnapshot =
-      typeof queueRetrySnapshotItems === "function" ? queueRetrySnapshotItems(snapshotRetryItems) : 0;
-    const addedFromFallback =
-      typeof queueFailedResults === "function" ? queueFailedResults(unresolvedFailedItems) : 0;
-    const added = addedFromSnapshot + addedFromFallback;
+    const statsFromSnapshot = normalizeRetryStats(
+      typeof queueRetrySnapshotItems === "function" ? queueRetrySnapshotItems(snapshotRetryItems) : 0
+    );
+    const statsFromFallback = normalizeRetryStats(
+      typeof queueFailedResults === "function" ? queueFailedResults(unresolvedFailedItems) : 0
+    );
+    const retryStats = {
+      added: statsFromSnapshot.added + statsFromFallback.added,
+      alreadyQueued: statsFromSnapshot.alreadyQueued + statsFromFallback.alreadyQueued,
+      blockedByLimit: statsFromSnapshot.blockedByLimit + statsFromFallback.blockedByLimit,
+      unresolved: statsFromSnapshot.unresolved + statsFromFallback.unresolved,
+      unresolvedUploadRefLost:
+        statsFromSnapshot.unresolvedUploadRefLost + statsFromFallback.unresolvedUploadRefLost + unresolvedUploadRefLost
+    };
 
-    if (added > 0) {
+    appendLog(
+      "info",
+      `重试结果：已加入 ${retryStats.added} 个，已在队列 ${retryStats.alreadyQueued} 个，上限拦截 ${retryStats.blockedByLimit} 个，不可重试 ${retryStats.unresolved} 个。`
+    );
+
+    if (retryStats.unresolvedUploadRefLost > 0) {
+      appendLog("warn", "检测到上传源文件引用失效，需要重新选择文件后再重试。");
+    }
+
+    if (retryStats.added > 0) {
       if (typeof onQueueChanged === "function") onQueueChanged();
-      appendLog("success", `已将 ${added} 个失败文件重新加入队列。`);
-      toastSuccess(`已加入 ${added} 个失败文件到队列`);
-    } else if (snapshotRetryItems.length > 0) {
-      appendLog("info", "失败文件已在当前队列中，可直接点击“开始转换”。");
+      appendLog("success", `已将 ${retryStats.added} 个失败文件重新加入队列。`);
+      toastSuccess(`已加入 ${retryStats.added} 个失败文件到队列`);
+      return;
+    }
+
+    if (retryStats.alreadyQueued > 0 && retryStats.blockedByLimit === 0 && retryStats.unresolved === 0) {
       toastInfo("失败文件已在队列中");
     } else {
-      appendLog("warn", "没有可重试的失败文件（可能为上传文件或已在队列中）。");
       toastInfo("没有可重试的失败文件");
     }
   }

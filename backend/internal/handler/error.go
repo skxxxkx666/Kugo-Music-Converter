@@ -12,6 +12,7 @@ const (
 	ErrDecryptFailed     = "ERR_DECRYPT_FAILED"
 	ErrDecryptKeyExpired = "ERR_DECRYPT_KEY_EXPIRED"
 	ErrTranscodeFailed   = "ERR_TRANSCODE_FAILED"
+	ErrFFmpegUnavailable = "ERR_FFMPEG_UNAVAILABLE"
 	ErrUnsupportedFormat = "ERR_UNSUPPORTED_FORMAT"
 	ErrRuntimeMissing    = "ERR_RUNTIME_MISSING"
 	ErrNoFiles           = "ERR_NO_FILES"
@@ -63,7 +64,8 @@ var errorCatalog = map[string]errorMeta{
 	ErrDBNotFound:        {userMessage: "未找到 KGMusicV3.db 数据库文件。", suggestion: "KGG 格式转换需要数据库，请先配置 KGMusicV3.db。", severity: "fatal"},
 	ErrDecryptFailed:     {userMessage: "解密失败，未生成可用音频文件。", suggestion: "请确认输入文件完整可用后重试。", severity: "error"},
 	ErrDecryptKeyExpired: {userMessage: "解密失败，密钥可能已失效。", suggestion: "请先在酷狗客户端播放一次该歌曲后重试。", severity: "error"},
-	ErrTranscodeFailed:   {userMessage: "音频转码失败。", suggestion: "请确认 ffmpeg 可用，或尝试更换输入文件后重试。", severity: "error"},
+	ErrTranscodeFailed:   {userMessage: "音频转码失败。", suggestion: "请确认输入文件完整可用，或更换输出格式后重试。", severity: "error"},
+	ErrFFmpegUnavailable: {userMessage: "运行时 ffmpeg 不可用。", suggestion: "请检查 tools/ffmpeg.exe 是否存在且可执行，然后重试。", severity: "fatal"},
 	ErrUnsupportedFormat: {userMessage: "不支持的输入文件格式。", suggestion: "仅支持 .kgg/.kgm/.kgma/.vpr/.ncm。", severity: "warning"},
 	ErrRuntimeMissing:    {userMessage: "运行时依赖缺失。", suggestion: "请补齐缺失文件后重试。", severity: "fatal"},
 	ErrNoFiles:           {userMessage: "未上传任何支持的文件。", suggestion: "请先选择至少一个加密音频文件。", severity: "warning"},

@@ -1,4 +1,4 @@
-export function createToastManager(options = {}) {
+﻿export function createToastManager(options = {}) {
   const host = options.host || document.body;
   const maxVisible = Math.max(1, Number(options.maxVisible) || 3);
   const defaultDuration = Math.max(1200, Number(options.defaultDuration) || 3000);
@@ -105,3 +105,4 @@ export function confirmDestructive(message) {
   if (!text) return true;
   return window.confirm(text);
 }
+

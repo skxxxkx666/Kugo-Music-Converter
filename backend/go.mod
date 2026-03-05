@@ -31,4 +31,3 @@ require (
 	modernc.org/memory v1.9.1 // indirect
 	unlock-music.dev/mmkv v0.1.0 // indirect
 )
-

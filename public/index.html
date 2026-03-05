@@ -1,124 +1,146 @@
 ﻿<!doctype html>
 <html lang="zh-CN" data-app-version="dev">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>酷狗/网易云加密音乐转换工具</title>
-    <link rel="icon" href="./favicon.ico" />
-    <link rel="stylesheet" href="./style.css" />
-  </head>
-  <body class="app-loading">
-    <a href="#dropZone" class="skip-link">跳到文件上传</a>
-    <main class="container">
-      <header class="hero">
-        <div class="hero-top">
-          <div>
-            <h1>酷狗/网易云加密音乐本地转换工具</h1>
-            <p class="subtitle">支持 KGG、KGM、KGMA、VPR、NCM → MP3/FLAC/WAV</p>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>酷狗/网易云加密音乐转换工具</title>
+<link rel="icon" href="./favicon.ico" />
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<script>
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          primary: "#0ea5e9",
+          secondary: "#10b981",
+          "background-light": "#f3f4f6",
+          "background-dark": "#0f172a",
+          "surface-light": "#ffffff",
+          "surface-dark": "#1e293b",
+          "text-light": "#1f2937",
+          "text-dark": "#e2e8f0",
+          "accent-dark": "#38bdf8",
+          "accent-light": "#0284c7"
+        },
+        fontFamily: {
+          display: ["Inter", "sans-serif"]
+        },
+        borderRadius: {
+          DEFAULT: "0.75rem"
+        }
+      }
+    }
+  };
+</script>
+<link rel="stylesheet" href="./style.css" />
+</head>
+<body class="app-loading bg-background-light dark:bg-background-dark text-text-light dark:text-text-dark font-display transition-colors duration-300 min-h-screen flex flex-col selection:bg-primary selection:text-white">
+<!-- a11y -->
+<a href="#dropZone" class="skip-link">跳到文件上传</a>
+<div id="toastHost" class="toast-host" aria-live="polite" aria-label="操作提示"></div>
+<div id="srAnnouncer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+<!-- ══════════ Header ══════════ -->
+<header class="hero w-full h-16 bg-surface-light/80 dark:bg-surface-dark/80 glass-panel border-b border-gray-200 dark:border-gray-700 fixed top-0 z-50 transition-colors duration-300">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg shadow-primary/20" aria-hidden="true">
+        <i data-lucide="music-4" class="w-4 h-4 text-white"></i>
+      </div>
+      <div>
+        <h1 class="text-lg font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400">
+          酷狗/网易云转换器
+        </h1>
+        <p class="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider font-semibold">KGG / KGM / KGMA / VPR / NCM</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-4">
+      <span id="versionBadge" class="version-badge">版本 --</span>
+      <button id="themeToggleBtn" type="button" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-600 dark:text-gray-400" aria-label="切换主题">
+        <i data-lucide="moon" class="w-5 h-5 dark:hidden"></i>
+        <i data-lucide="sun" class="w-5 h-5 hidden dark:block text-yellow-400"></i>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- ══════════ Main ══════════ -->
+<main class="flex-grow pt-24 pb-32 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full flex flex-col gap-6">
+
+  <div id="updateBannerHost" class="update-banner-host hidden" aria-live="polite" aria-label="版本更新提示"></div>
+  <div id="globalAlert" class="alert hidden" role="alert" aria-live="assertive" aria-atomic="true"></div>
+
+  <!-- skeleton -->
+  <section id="loadingSkeleton" class="skeleton-screen" aria-label="页面加载中">
+    <div class="skeleton-card"><div class="skeleton-line w-60"></div><div class="skeleton-line w-90"></div><div class="skeleton-line w-45"></div></div>
+    <div class="skeleton-card"><div class="skeleton-line w-35"></div><div class="skeleton-line w-100"></div><div class="skeleton-line w-80"></div></div>
+  </section>
+
+  <!-- ───── 环境配置 ───── -->
+  <section class="card bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden transition-all duration-300 group">
+    <details id="configCard" class="w-full" open>
+      <summary class="flex items-center justify-between p-5 cursor-pointer list-none select-none hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+        <div class="flex items-center gap-3">
+          <i data-lucide="settings-2" class="w-5 h-5 text-primary" aria-hidden="true"></i>
+          <h2 class="text-base font-semibold">环境配置</h2>
+        </div>
+        <i data-lucide="chevron-down" class="w-5 h-5 text-gray-400 transform transition-transform group-open:rotate-180" aria-hidden="true"></i>
+      </summary>
+      <div class="p-6 pt-0 border-t border-gray-100 dark:border-gray-700/50 mt-2 space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+          <!-- DB 路径 -->
+          <div class="space-y-2">
+            <label for="dbPath" class="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
+              <i data-lucide="database" class="w-3.5 h-3.5" aria-hidden="true"></i> KGMusicV3.db 路径
+            </label>
+            <div class="flex gap-2">
+              <input id="dbPath" type="text" class="flex-1 bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:ring-primary focus:border-primary dark:text-gray-300 shadow-sm" placeholder="请选择 KGMusicV3.db（仅 KGG 需要）" aria-describedby="dbPathHint dbStatus" />
+              <button id="pickDbBtn" type="button" class="p-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-primary transition-colors" data-icon="folder-open" title="选择数据库" aria-label="选择数据库">选择数据库</button>
+              <button id="redetectDbBtn" type="button" class="p-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-primary transition-colors" data-icon="refresh-cw" title="重新检测" aria-label="重新检测">重新检测</button>
+            </div>
+            <p id="dbPathHint" class="text-[10px] text-gray-400 dark:text-gray-500">仅 KGG 格式需要此文件，其他格式无需配置。</p>
+            <p id="dbStatus" class="hint" role="status" aria-live="polite">正在检测数据库...</p>
           </div>
-          <div class="hero-actions">
-            <span class="version-badge" id="versionBadge">版本 --</span>
-            <button
-              id="themeToggleBtn"
-              type="button"
-              class="btn-secondary"
-              data-icon="moon"
-              aria-label="切换深色主题"
-            >
-              切换深色
-            </button>
+          <!-- 输出目录 -->
+          <div class="space-y-2">
+            <label for="outputDir" class="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
+              <i data-lucide="folder-output" class="w-3.5 h-3.5" aria-hidden="true"></i> 输出目录
+            </label>
+            <div class="flex gap-2">
+              <input id="outputDir" type="text" class="flex-1 bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:ring-primary focus:border-primary dark:text-gray-300 shadow-sm" placeholder="请选择输出目录" aria-describedby="outputDirHint" />
+              <button id="pickDirBtn" type="button" class="p-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-secondary transition-colors" data-icon="folder-open" title="选择目录" aria-label="选择输出目录">选择目录</button>
+              <button id="openDirBtn" type="button" class="p-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-secondary transition-colors" data-icon="folder" title="打开文件夹" aria-label="打开输出目录">打开文件夹</button>
+            </div>
+            <p id="outputDirHint" class="text-[10px] text-gray-400 dark:text-gray-500">转换后的文件将保存到该目录。</p>
           </div>
         </div>
-      </header>
-
-      <div id="updateBannerHost" class="update-banner-host" aria-live="polite" aria-label="版本更新提示"></div>
-      <div id="globalAlert" class="alert hidden" role="alert" aria-live="assertive" aria-atomic="true"></div>
-      <div id="toastHost" class="toast-host" aria-live="polite" aria-label="操作提示"></div>
-      <div id="srAnnouncer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
-
-      <section id="loadingSkeleton" class="skeleton-screen" aria-label="页面加载中">
-        <div class="skeleton-card">
-          <div class="skeleton-line w-60"></div>
-          <div class="skeleton-line w-90"></div>
-          <div class="skeleton-line w-45"></div>
-        </div>
-        <div class="skeleton-card">
-          <div class="skeleton-line w-35"></div>
-          <div class="skeleton-line w-100"></div>
-          <div class="skeleton-line w-80"></div>
-          <div class="skeleton-line w-50"></div>
-        </div>
-        <div class="skeleton-card">
-          <div class="skeleton-line w-40"></div>
-          <div class="skeleton-line w-95"></div>
-          <div class="skeleton-line w-70"></div>
-        </div>
-      </section>
-
-      <section class="card config-card" id="configCard">
-        <div class="row row-between config-header">
-          <h2>环境配置</h2>
-          <button
-            id="configToggleBtn"
-            type="button"
-            class="btn-secondary config-toggle-btn"
-            data-icon="panel-top-close"
-            aria-label="折叠环境配置"
-          >
-            折叠配置
-          </button>
-        </div>
-        <p id="configSummary" class="hint config-summary hidden"></p>
-        <div id="configBody" class="config-body">
-
-        <label for="dbPath">KGMusicV3.db 路径</label>
-        <div class="row">
-          <input
-            id="dbPath"
-            type="text"
-            aria-describedby="dbPathHint dbStatus"
-            placeholder="请选择 KGMusicV3.db 文件（仅 KGG 需要）"
-          />
-          <button id="pickDbBtn" type="button" data-icon="database" aria-label="选择 KGMusicV3.db 数据库">选择数据库</button>
-          <button id="redetectDbBtn" type="button" class="btn-secondary" data-icon="refresh-cw" aria-label="重新检测数据库">
-            重新检测
-          </button>
-        </div>
-        <p id="dbPathHint" class="hint">仅 KGG 格式需要 KGMusicV3.db，其他格式无需配置数据库。</p>
-        <p id="dbStatus" class="hint" role="status" aria-live="polite">正在检测数据库...</p>
-
-        <label for="outputDir">输出目录</label>
-        <div class="row">
-          <input id="outputDir" type="text" aria-describedby="outputDirHint" placeholder="请选择输出目录" />
-          <button id="pickDirBtn" type="button" data-icon="folder-open" aria-label="选择输出目录">选择目录</button>
-          <button id="openDirBtn" type="button" class="btn-secondary" data-icon="folder" aria-label="打开输出目录">
-            打开文件夹
-          </button>
-        </div>
-        <p id="outputDirHint" class="hint">转换后的文件将保存到该目录。</p>
-
-        <div class="row">
-          <div class="field-block">
-            <label for="outputFormat">输出格式</label>
-            <select id="outputFormat" aria-describedby="runtimeStatus">
+        <!-- 下拉选项 -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="space-y-1">
+            <label for="outputFormat" class="text-xs font-medium text-gray-500 dark:text-gray-400">输出格式</label>
+            <select id="outputFormat" class="w-full bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:ring-primary focus:border-primary dark:text-gray-300 shadow-sm" aria-describedby="runtimeStatus">
               <option value="copy">遵循原文件（不转码）</option>
               <option value="mp3">MP3（兼容性最好）</option>
               <option value="flac">FLAC（无损）</option>
               <option value="wav">WAV（无压缩）</option>
             </select>
           </div>
-          <div class="field-block" id="mp3QualityWrap">
-            <label for="mp3Quality">MP3 质量</label>
-            <select id="mp3Quality" aria-label="MP3 转码质量">
+          <div class="space-y-1" id="mp3QualityWrap">
+            <label for="mp3Quality" class="text-xs font-medium text-gray-500 dark:text-gray-400">MP3 质量</label>
+            <select id="mp3Quality" class="w-full bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:ring-primary focus:border-primary dark:text-gray-300 shadow-sm" aria-label="MP3 转码质量">
               <option value="0">极高（VBR ~245kbps）</option>
               <option value="2" selected>高（VBR ~190kbps）</option>
               <option value="5">中（VBR ~130kbps）</option>
               <option value="7">低（VBR ~100kbps）</option>
             </select>
           </div>
-          <div class="field-block">
-            <label for="concurrency">并发数</label>
-            <select id="concurrency" aria-label="并发处理数量">
+          <div class="space-y-1">
+            <label for="concurrency" class="text-xs font-medium text-gray-500 dark:text-gray-400">并发数</label>
+            <select id="concurrency" class="w-full bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:ring-primary focus:border-primary dark:text-gray-300 shadow-sm" aria-label="并发处理数量">
               <option value="1">1</option>
               <option value="2">2</option>
               <option value="3" selected>3</option>
@@ -128,219 +150,207 @@
             </select>
           </div>
         </div>
-
         <p id="runtimeStatus" class="hint" role="status" aria-live="polite">正在检测运行环境...</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ───── 文件上传 ───── -->
+  <section class="card flex-grow flex flex-col gap-4">
+    <!-- 拖放区 -->
+    <div id="dropZone" class="relative bg-surface-light dark:bg-surface-dark rounded-2xl shadow-lg border-2 border-dashed border-gray-300 dark:border-gray-700 group hover:border-primary dark:hover:border-primary transition-all duration-300 h-64 flex flex-col items-center justify-center cursor-pointer overflow-hidden" role="region" aria-label="拖放上传区域">
+      <div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-secondary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+      <div class="z-10 text-center space-y-4">
+        <div class="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform duration-300 shadow-inner">
+          <i data-lucide="upload-cloud" class="w-8 h-8 text-primary" aria-hidden="true"></i>
         </div>
-      </section>
-
-      <section class="card">
-        <h2>文件上传</h2>
-
-        <div id="dropZone" class="drop-zone" role="region" aria-label="拖放上传区域">
-          <p class="drop-zone-text">
-            拖放加密音频到此处，或点击下方按钮选择文件<br />
-            <small>支持 KGG、KGM、KGMA、VPR、NCM</small>
-          </p>
-          <button id="pickFilesBtn" type="button" data-icon="upload" aria-label="选择加密音频文件">选择音频文件</button>
-          <input
-            id="kggFiles"
-            type="file"
-            aria-label="选择加密音频文件"
-            accept=".kgg,.kgm,.kgma,.vpr,.ncm"
-            multiple
-            class="hidden-input"
-          />
+        <div class="space-y-1">
+          <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200">拖放加密音频到此处</h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400">或点击选择文件</p>
         </div>
-
-        <div class="row row-between queue-toolbar">
-          <span class="queue-title">待转换队列</span>
-          <button id="clearQueueBtn" type="button" class="btn-secondary" data-icon="trash" aria-label="清空全部待转换文件">
-            清空全部
-          </button>
+        <div class="flex gap-2 justify-center text-[10px] text-gray-400 uppercase tracking-widest font-medium pt-2">
+          <span class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">KGG</span>
+          <span class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">KGM</span>
+          <span class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">KGMA</span>
+          <span class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">VPR</span>
+          <span class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">NCM</span>
         </div>
-        <p id="fileSummary" class="hint" role="status" aria-live="polite">未选择文件</p>
-        <div id="filePreviewList" class="file-preview-list" role="list" aria-label="待转换文件列表"></div>
+        <button id="pickFilesBtn" type="button" class="relative z-20 px-4 py-2 bg-primary hover:bg-accent-light text-white text-sm font-semibold rounded-lg transition-colors shadow-sm" data-icon="upload" aria-label="选择加密音频文件">选择音频文件</button>
+      </div>
+      <input id="kggFiles" type="file" class="hidden-input" accept=".kgg,.kgm,.kgma,.vpr,.ncm" multiple aria-label="选择加密音频文件" />
+    </div>
+    <!-- 文件队列 -->
+    <div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div class="p-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50">
+        <span id="fileSummary" class="text-xs font-medium text-gray-500" role="status" aria-live="polite">未选择文件</span>
+        <button id="clearQueueBtn" type="button" class="text-xs text-red-500 hover:text-red-600 font-medium bg-transparent border-0 p-1 min-h-0 shadow-none" data-icon="trash" aria-label="清空全部">清空全部</button>
+      </div>
+      <div id="filePreviewList" class="file-preview-list" role="list" aria-label="待转换文件列表"></div>
+    </div>
+  </section>
 
-        <div class="action-row">
-          <button id="convertBtn" type="button" data-icon="play" aria-label="开始转换" disabled>开始转换</button>
-          <button id="cancelBtn" type="button" class="btn-cancel" data-icon="square" aria-label="取消转换" disabled>取消</button>
-          <button id="openOutputBtn" type="button" class="btn-secondary" data-icon="folder-open" aria-label="打开输出目录">
-            打开输出目录
-          </button>
+  <!-- ───── 转换进度（隐藏） ───── -->
+  <section class="card bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 hidden" id="progressSection">
+    <h2 class="text-base font-semibold mb-4">转换进度</h2>
+    <div class="progress-bar-container">
+      <div class="progress-bar" id="totalProgressBar" role="progressbar" aria-label="转换总进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" style="width: 0%">
+        <span class="progress-text" id="totalProgressText">0%</span>
+      </div>
+    </div>
+    <p class="progress-info">
+      <span id="progressStatus" aria-live="polite">等待开始...</span>
+      <span id="progressETA" aria-live="polite"></span>
+    </p>
+    <div id="fileProgressList" class="file-list" role="list" aria-label="单文件进度列表"></div>
+  </section>
+
+  <!-- ───── 转换结果（隐藏） ───── -->
+  <section class="card bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 hidden" id="resultDashboard">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-base font-semibold">转换结果</h2>
+      <button id="openResultDirBtn" type="button" class="text-xs text-primary hover:text-accent-light font-medium bg-transparent border-0 p-1 min-h-0 shadow-none flex items-center gap-1" data-icon="folder-open">打开输出目录</button>
+    </div>
+    <div class="dashboard">
+      <div class="stat-card stat-success"><div class="stat-number" id="statSuccess">0</div><div class="stat-label">成功</div></div>
+      <div class="stat-card stat-failed"><div class="stat-number" id="statFailed">0</div><div class="stat-label">失败</div></div>
+      <div class="stat-card stat-duration"><div class="stat-number" id="statDuration">0s</div><div class="stat-label">总耗时</div></div>
+    </div>
+    <div id="successSection" class="success-section hidden">
+      <h3 class="text-sm font-semibold mt-4">成功文件试听</h3>
+      <div id="successList" class="success-list" role="list" aria-label="成功文件列表"></div>
+      <audio id="previewAudio" class="preview-audio hidden" controls preload="none"></audio>
+    </div>
+    <div id="failedSection" class="failed-section hidden">
+      <div class="flex justify-between items-center mt-4 flex-wrap gap-2">
+        <h3 class="text-sm font-semibold">失败详情</h3>
+        <div class="flex gap-2">
+          <button id="retryFailedBtn" type="button" class="btn-secondary" data-icon="rotate-cw">重试全部</button>
+          <button id="exportFailedBtn" type="button" class="btn-secondary" data-icon="download">导出失败列表</button>
         </div>
-      </section>
+      </div>
+      <div id="failedList" class="failed-list" role="list" aria-label="失败文件详情列表"></div>
+    </div>
+  </section>
 
-      <section class="card hidden" id="progressSection">
-        <h2>转换进度</h2>
-        <div class="progress-bar-container">
-          <div
-            class="progress-bar"
-            id="totalProgressBar"
-            role="progressbar"
-            aria-label="转换总进度"
-            aria-valuemin="0"
-            aria-valuemax="100"
-            aria-valuenow="0"
-            style="width: 0%"
-          >
-            <span class="progress-text" id="totalProgressText">0%</span>
-          </div>
+  <!-- ───── 工具区 ───── -->
+  <section class="card grid grid-cols-1 md:grid-cols-2 gap-4">
+    <!-- 文件名提取 -->
+    <div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 relative overflow-hidden">
+      <div class="flex justify-between items-start mb-4">
+        <div>
+          <h3 class="font-semibold text-sm mb-1">文件名提取工具</h3>
+          <p class="text-xs text-gray-500 dark:text-gray-400">批量复制文件名</p>
         </div>
-        <p class="progress-info">
-          <span id="progressStatus" aria-live="polite">等待开始...</span>
-          <span id="progressETA" aria-live="polite"></span>
-        </p>
-        <div id="fileProgressList" class="file-list" role="list" aria-label="单文件进度列表"></div>
-      </section>
-
-      <section class="card hidden" id="resultDashboard">
-        <div class="row row-between">
-          <h2>转换结果</h2>
-          <button
-            id="openResultDirBtn"
-            type="button"
-            class="btn-secondary"
-            data-icon="folder-open"
-            aria-label="打开结果输出目录"
-          >
-            打开输出目录
-          </button>
-        </div>
-        <div class="dashboard">
-          <div class="stat-card stat-success">
-            <div class="stat-number" id="statSuccess">0</div>
-            <div class="stat-label">成功</div>
-          </div>
-          <div class="stat-card stat-failed">
-            <div class="stat-number" id="statFailed">0</div>
-            <div class="stat-label">失败</div>
-          </div>
-          <div class="stat-card stat-duration">
-            <div class="stat-number" id="statDuration">0s</div>
-            <div class="stat-label">总耗时</div>
-          </div>
-        </div>
-
-        <div id="successSection" class="success-section hidden">
-          <h3>成功文件试听</h3>
-          <div id="successList" class="success-list" role="list" aria-label="成功文件列表"></div>
-          <audio id="previewAudio" class="preview-audio hidden" controls preload="none"></audio>
-        </div>
-
-        <div id="failedSection" class="failed-section hidden">
-          <div class="row row-between">
-            <h3>失败详情</h3>
-            <div class="row failed-actions">
-              <button
-                id="retryFailedBtn"
-                type="button"
-                class="btn-secondary"
-                data-icon="rotate-cw"
-                aria-label="重试全部失败文件"
-              >
-                重试全部失败
-              </button>
-              <button
-                id="exportFailedBtn"
-                type="button"
-                class="btn-secondary"
-                data-icon="download"
-                aria-label="导出失败文件列表"
-              >
-                导出失败文件列表
-              </button>
-            </div>
-          </div>
-          <div id="failedList" class="failed-list" role="list" aria-label="失败文件详情列表"></div>
-        </div>
-      </section>
-
-      <section class="card">
-        <div class="row row-between">
-          <h2>操作日志</h2>
-          <button id="exportLogBtn" type="button" class="btn-secondary" data-icon="download" aria-label="导出操作日志">
-            导出日志
-          </button>
-        </div>
-        <div id="logBox" class="log-box" role="log" aria-live="off"></div>
-      </section>
-
-      <section class="card">
-        <div class="row row-between">
-          <h2>转换历史</h2>
-          <button id="clearHistoryBtn" type="button" class="btn-secondary" data-icon="trash-2" aria-label="清空转换历史">
-            清空历史
-          </button>
-        </div>
-        <div id="historyPanel" class="history-panel" role="list" aria-label="转换历史列表"></div>
-      </section>
-
-      <section class="card">
-        <h2>文件名提取工具</h2>
-        <p class="hint">选择一个或多个文件夹，扫描文件名并支持复制/导出。</p>
-
-        <div class="row">
-          <button id="pickFoldersBtn" type="button" data-icon="folder-plus" aria-label="选择扫描文件夹">选择文件夹（可多次添加）</button>
-          <label class="checkbox-label">
-            <input id="scanRecursive" type="checkbox" checked />
+        <span class="text-secondary/80 bg-secondary/10 p-1.5 rounded-lg"><i data-lucide="copy" class="w-5 h-5" aria-hidden="true"></i></span>
+      </div>
+      <div class="space-y-3">
+        <div class="flex items-center gap-2">
+          <button id="pickFoldersBtn" type="button" class="bg-secondary/10 hover:bg-secondary/20 text-secondary text-xs font-medium py-2 px-4 rounded-lg transition-colors flex items-center gap-1 flex-1 justify-center" data-icon="folder-plus">选择文件夹</button>
+          <label class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 cursor-pointer whitespace-nowrap">
+            <input id="scanRecursive" type="checkbox" class="form-checkbox rounded text-secondary border-gray-300 dark:border-gray-600 bg-transparent focus:ring-secondary" checked />
             包含子目录
           </label>
         </div>
-
         <div id="selectedFolders" class="folder-tag-list" role="list" aria-label="已选择的文件夹"></div>
-
-        <div class="row">
-          <div class="field-block">
-            <label for="extFilter">格式筛选</label>
-            <select id="extFilter" aria-label="扫描格式筛选">
-              <option value="">全部文件</option>
-              <option value=".kgg,.kgm,.kgma,.vpr,.ncm">加密音频（KGG/KGM/VPR/NCM）</option>
-              <option value=".mp3,.flac,.wav,.ogg">普通音频（MP3/FLAC/WAV/OGG）</option>
-              <option value="custom">自定义...</option>
-            </select>
-          </div>
-          <div class="field-block hidden" id="customExtWrap">
-            <label for="customExtFilter">自定义扩展名</label>
-            <input id="customExtFilter" type="text" aria-label="自定义扩展名筛选" placeholder="如 .kgg,.mp3" />
-          </div>
+      </div>
+    </div>
+    <!-- 格式筛选 -->
+    <div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 relative overflow-hidden">
+      <div class="flex justify-between items-start mb-4">
+        <div>
+          <h3 class="font-semibold text-sm mb-1">格式筛选与扫描</h3>
+          <p class="text-xs text-gray-500 dark:text-gray-400">仅扫描特定格式</p>
         </div>
-
-        <button id="scanBtn" type="button" data-icon="search" aria-label="开始扫描文件夹" disabled>开始扫描</button>
-
-        <div id="scanResult" class="hidden" aria-live="polite">
-          <div class="scan-summary">
-            <span id="scanTotal">0 个文件</span>
-            <span id="scanSize">0 MB</span>
-          </div>
-
-          <div class="scan-actions">
-            <button id="copyNamesBtn" type="button" data-icon="copy" aria-label="复制文件名">复制文件名</button>
-            <button id="copyPathsBtn" type="button" data-icon="file" aria-label="复制完整路径">复制完整路径</button>
-            <button id="exportCsvBtn" type="button" data-icon="table" aria-label="导出 CSV">导出 CSV</button>
-            <button id="selectAllForConvert" type="button" data-icon="list" aria-label="加入转换队列">
-              加入转换队列
-            </button>
-          </div>
-
-          <div id="fileNameList" class="file-name-list" role="list" aria-label="扫描结果列表"></div>
+        <span class="text-primary/80 bg-primary/10 p-1.5 rounded-lg"><i data-lucide="filter" class="w-5 h-5" aria-hidden="true"></i></span>
+      </div>
+      <div class="space-y-3">
+        <div class="flex gap-2 items-center">
+          <select id="extFilter" class="flex-1 bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-700 rounded-lg text-xs py-2 focus:ring-primary focus:border-primary dark:text-gray-300 shadow-sm" aria-label="扫描格式筛选">
+            <option value="">全部文件</option>
+            <option value=".kgg,.kgm,.kgma,.vpr,.ncm">加密音频（KGG/KGM/VPR/NCM）</option>
+            <option value=".mp3,.flac,.wav,.ogg">普通音频（MP3/FLAC/WAV/OGG）</option>
+            <option value="custom">自定义...</option>
+          </select>
+          <button id="scanBtn" type="button" class="bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium py-2 px-4 rounded-lg transition-colors flex items-center gap-1" data-icon="search" disabled>扫描</button>
         </div>
-      </section>
+        <div class="hidden" id="customExtWrap">
+          <input id="customExtFilter" type="text" class="w-full bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-700 rounded-lg text-xs py-2 focus:ring-primary focus:border-primary dark:text-gray-300 shadow-sm" placeholder="自定义扩展名，如 .kgg,.mp3" aria-label="自定义扩展名筛选" />
+        </div>
+      </div>
+    </div>
+  </section>
 
-      <footer class="footer">当前版本：<span id="footerVersion">--</span></footer>
-    </main>
+  <!-- 扫描结果（隐藏） -->
+  <div id="scanResult" class="card hidden bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5" aria-live="polite">
+    <div class="scan-summary">
+      <span id="scanTotal">0 个文件</span>
+      <span id="scanSize">0 MB</span>
+    </div>
+    <div class="scan-actions mt-3">
+      <button id="copyNamesBtn" type="button" class="btn-secondary" data-icon="copy">复制文件名</button>
+      <button id="copyPathsBtn" type="button" class="btn-secondary" data-icon="file">复制完整路径</button>
+      <button id="exportCsvBtn" type="button" class="btn-secondary" data-icon="table">导出 CSV</button>
+      <button id="selectAllForConvert" type="button" class="btn-secondary" data-icon="list">加入转换队列</button>
+    </div>
+    <div id="fileNameList" class="file-name-list mt-3" role="list" aria-label="扫描结果列表"></div>
+  </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
-    <script>
-      (function loadAppModule() {
-        var root = document.documentElement;
-        var version = (root.getAttribute("data-app-version") || "dev").replace(/^\s+|\s+$/g, "") || "dev";
-        window.__APP_VERSION__ = version;
-        var script = document.createElement("script");
-        script.type = "module";
-        script.src = "./app.js?v=" + encodeURIComponent(version) + "&_ts=" + Date.now();
-        document.body.appendChild(script);
-      })();
-    </script>
-  </body>
+  <!-- 日志切换按钮 -->
+  <div class="flex justify-center">
+    <button type="button" class="text-xs text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary flex items-center gap-1 transition-colors bg-transparent border-0 p-1 min-h-0 shadow-none" onclick="document.getElementById('logs-panel').classList.toggle('hidden')">
+      <i data-lucide="history" class="w-4 h-4" aria-hidden="true"></i> 查看转换日志与历史
+    </button>
+  </div>
+
+  <!-- ───── 日志与历史 ───── -->
+  <section id="logs-panel" class="card bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+    <div class="grid gap-4 lg:grid-cols-2 p-5">
+      <div>
+        <div class="flex justify-between items-center mb-3">
+          <h2 class="text-sm font-semibold">操作日志</h2>
+          <button id="exportLogBtn" type="button" class="text-xs text-gray-500 hover:text-primary bg-transparent border-0 p-1 min-h-0 shadow-none" data-icon="download">导出日志</button>
+        </div>
+        <div id="logBox" class="log-box" role="log" aria-live="off"></div>
+      </div>
+      <div>
+        <div class="flex justify-between items-center mb-3">
+          <h2 class="text-sm font-semibold">转换历史</h2>
+          <button id="clearHistoryBtn" type="button" class="text-xs text-gray-500 hover:text-primary bg-transparent border-0 p-1 min-h-0 shadow-none" data-icon="trash-2">清空历史</button>
+        </div>
+        <div id="historyPanel" class="history-panel" role="list" aria-label="转换历史列表"></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer text-center text-gray-500 dark:text-gray-400 text-xs mt-4">当前版本：<span id="footerVersion">--</span></footer>
+</main>
+
+<!-- ══════════ Bottom Action Bar ══════════ -->
+<div id="bottomActionBar" class="fixed bottom-0 left-0 right-0 bg-surface-light/90 dark:bg-surface-dark/90 glass-panel border-t border-gray-200 dark:border-gray-700 p-4 z-40">
+  <div class="max-w-5xl mx-auto flex items-center justify-between gap-4">
+    <div id="bottomConfigSummary" class="hidden sm:flex items-center gap-6 text-sm text-gray-600 dark:text-gray-400 min-w-0 flex-1">
+      当前配置：等待加载
+    </div>
+    <div class="flex items-center gap-3 flex-1 sm:flex-none justify-end">
+      <button id="cancelBtn" type="button" class="px-6 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors bg-transparent" data-icon="square" aria-label="取消转换" disabled>取消</button>
+      <button id="openOutputBtn" type="button" class="px-6 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors bg-transparent flex items-center gap-2" data-icon="folder" aria-label="打开输出目录">打开输出</button>
+      <button id="convertBtn" type="button" class="btn-convert" data-icon="play" aria-label="开始转换" disabled>开始转换</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+<script>
+  (function loadAppModule() {
+    var root = document.documentElement;
+    var version = (root.getAttribute("data-app-version") || "dev").replace(/^\s+|\s+$/g, "") || "dev";
+    window.__APP_VERSION__ = version;
+    var script = document.createElement("script");
+    script.type = "module";
+    script.src = "./app.js?v=" + encodeURIComponent(version) + "&_ts=" + Date.now();
+    document.body.appendChild(script);
+  })();
+</script>
+</body>
 </html>

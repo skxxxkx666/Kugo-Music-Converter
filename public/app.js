@@ -136,6 +136,7 @@ const srAnnouncer = document.getElementById("srAnnouncer");
 const configCard = document.getElementById("configCard");
 const configSummary = document.getElementById("configSummary");
 const configToggleBtn = document.getElementById("configToggleBtn");
+const bottomConfigSummary = document.getElementById("bottomConfigSummary");
 
 const state = {
   isBusy: false,
@@ -239,11 +240,10 @@ function pulseDropZone() {
   window.gsap.killTweensOf(dropZone);
   window.gsap.fromTo(
     dropZone,
-    { scale: 1, boxShadow: "0 0 0 0 rgba(15,118,110,0.22)" },
+    { boxShadow: "0 0 0 0 rgba(14,165,233,0.22)" },
     {
-      scale: 1.01,
-      boxShadow: "0 0 0 8px rgba(15,118,110,0)",
-      duration: 0.3,
+      boxShadow: "0 0 0 8px rgba(14,165,233,0)",
+      duration: 0.22,
       ease: "power2.out"
     }
   );
@@ -268,7 +268,7 @@ function applyMicroInteractions() {
   document.addEventListener("pointerdown", (event) => {
     const button = event.target.closest("button:not(:disabled)");
     if (!button) return;
-    window.gsap.to(button, { scale: 0.97, duration: 0.08, yoyo: true, repeat: 1, ease: "power1.out" });
+    window.gsap.to(button, { opacity: 0.8, duration: 0.08, yoyo: true, repeat: 1, ease: "power1.out" });
   });
 }
 
@@ -296,6 +296,13 @@ function appendPayloadError(prefix, payload) {
   const userMessage = payload?.userMessage || payload?.error || "发生未知错误";
   appendLog(severityToLogLevel(payload?.severity), `${prefix}${userMessage}`);
   if (payload?.suggestion) appendLog("warn", `建议：${payload.suggestion}`);
+  if (payload?.detail) {
+    const compactDetail = String(payload.detail).replace(/\s+/g, " ").trim();
+    if (compactDetail) {
+      const brief = compactDetail.length > 120 ? `${compactDetail.slice(0, 120)}...` : compactDetail;
+      appendLog("info", `详情：${brief}`);
+    }
+  }
 }
 
 function toastInfo(message) {
@@ -446,7 +453,18 @@ function updateConvertButtonState() {
   cancelBtn.disabled = !state.isBusy;
   setButtonContent(cancelBtn, "取消", "square");
   if (clearQueueBtn) clearQueueBtn.disabled = state.isBusy || uploader.pendingCount() === 0;
+  updateBottomActionSummary();
   refreshIcons();
+}
+
+function updateBottomActionSummary() {
+  if (!bottomConfigSummary) return;
+  const outputDir = outputDirInput.value.trim() || "未设置";
+  const compactDir = outputDir.length > 38 ? `...${outputDir.slice(-35)}` : outputDir;
+  const format = String(outputFormatSelect.value || "copy").toUpperCase();
+  const dbText = uploader.requiresDb() ? (uploader.isDbReady() ? "DB已就绪" : "DB未就绪") : "无需DB";
+  bottomConfigSummary.textContent = `格式：${format} | 输出：${compactDir} | ${dbText}`;
+  bottomConfigSummary.setAttribute("title", `输出目录：${outputDir}`);
 }
 
 function setBusy(isBusy) {
@@ -472,6 +490,7 @@ function queueChanged() {
   uploader.updateFileSummary();
   renderGlobalAlert();
   updateConvertButtonState();
+  updateBottomActionSummary();
   if (configController) configController.updateConfigAutoCollapse();
 }
 
@@ -664,7 +683,7 @@ const dragDropController = createDragDropController({
 
 function exportLogs() {
   const lines = Array.from(logBox.querySelectorAll(".log-line")).map((line) => line.textContent);
-  const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+  const blob = new Blob([`\uFEFF${lines.join("\n")}`], { type: "text/plain;charset=utf-8" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = `转换日志_${new Date().toISOString().replace(/[:.]/g, "-")}.txt`;

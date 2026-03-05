@@ -47,6 +47,7 @@
 
   let validateDbTimer = null;
   let useSystemThemeSync = true;
+  let syncingConfigDetails = false;
   const pickerTimeoutMs = 5 * 60 * 1000;
 
   function emitStateChanged() {
@@ -87,11 +88,14 @@
         document.documentElement.classList.remove("theme-transitioning");
       }, 420);
     }
-    document.documentElement.setAttribute("data-theme", normalized);
     const isDark = normalized === "dark";
-    setButtonContent(themeToggleBtn, isDark ? "切换浅色" : "切换深色", isDark ? "sun" : "moon");
-    themeToggleBtn.setAttribute("aria-label", isDark ? "切换到浅色主题" : "切换到深色主题");
-    refreshIcons();
+    document.documentElement.classList.toggle("dark", isDark);
+    // 保留 data-theme 兼容已有逻辑与旧样式
+    document.documentElement.setAttribute("data-theme", normalized);
+    // 主题图标通过 CSS dark:hidden / hidden dark:block 自动切换，无需 JS 替换
+    if (themeToggleBtn) {
+      themeToggleBtn.setAttribute("aria-label", isDark ? "切换到浅色主题" : "切换到深色主题");
+    }
     if (persist) localStorage.setItem(themeKey, normalized);
   }
 
@@ -116,8 +120,8 @@
 
   function toggleTheme() {
     useSystemThemeSync = false;
-    const current = document.documentElement.getAttribute("data-theme") || "light";
-    applyTheme(current === "dark" ? "light" : "dark");
+    const isDark = document.documentElement.classList.contains("dark");
+    applyTheme(isDark ? "light" : "dark");
   }
 
   function updateMp3QualityVisibility() {
@@ -139,22 +143,45 @@
     return runtimeReady && outputReady && dbReady;
   }
 
-  function setConfigCollapsed(collapsed, persist = true) {
-    if (!configCard || !configSummary || !configToggleBtn) return;
-    state.configCollapsed = Boolean(collapsed);
-    configCard.classList.toggle("collapsed", state.configCollapsed);
-    configSummary.textContent = buildConfigSummaryText();
-    configSummary.classList.toggle("hidden", !state.configCollapsed);
-    setButtonContent(
-      configToggleBtn,
-      state.configCollapsed ? "展开配置" : "折叠配置",
-      state.configCollapsed ? "panel-top-open" : "panel-top-close"
-    );
-    configToggleBtn.setAttribute("aria-label", state.configCollapsed ? "展开环境配置" : "折叠环境配置");
-    refreshIcons();
+  function syncConfigCollapsedUi(persist = true) {
+    if (configSummary) {
+      configSummary.textContent = buildConfigSummaryText();
+      configSummary.classList.toggle("hidden", !state.configCollapsed);
+    }
+    if (configToggleBtn) {
+      setButtonContent(
+        configToggleBtn,
+        state.configCollapsed ? "展开配置" : "折叠配置",
+        state.configCollapsed ? "panel-top-open" : "panel-top-close"
+      );
+      configToggleBtn.setAttribute("aria-label", state.configCollapsed ? "展开环境配置" : "折叠环境配置");
+      refreshIcons();
+    }
     if (persist) {
       localStorage.setItem(configCollapsedKey, state.configCollapsed ? "1" : "0");
     }
+  }
+
+  function setConfigCollapsed(collapsed, persist = true) {
+    state.configCollapsed = Boolean(collapsed);
+    if (configCard) {
+      if (typeof configCard.open === "boolean") {
+        syncingConfigDetails = true;
+        configCard.open = !state.configCollapsed;
+        queueMicrotask(() => {
+          syncingConfigDetails = false;
+        });
+      } else {
+        configCard.classList.toggle("collapsed", state.configCollapsed);
+      }
+    }
+    syncConfigCollapsedUi(persist);
+  }
+
+  function handleConfigDetailsToggle() {
+    if (!configCard || typeof configCard.open !== "boolean") return;
+    state.configCollapsed = !configCard.open;
+    syncConfigCollapsedUi(!syncingConfigDetails);
   }
 
   function updateConfigAutoCollapse() {
@@ -172,6 +199,10 @@
     } else {
       setConfigCollapsed(false, false);
     }
+  }
+
+  if (configCard && typeof configCard.addEventListener === "function" && typeof configCard.open === "boolean") {
+    configCard.addEventListener("toggle", handleConfigDetailsToggle);
   }
 
   function applyConfig(config) {
