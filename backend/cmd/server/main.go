@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 import (
 	"context"
@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	version    = "v0.3.9"
+	version    = "v0.4.0"
 	buildDate  = "unknown"
 	commitHash = "unknown"
 	appEnv     = "unknown"

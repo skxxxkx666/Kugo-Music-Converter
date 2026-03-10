@@ -3,6 +3,7 @@ package handler
 import (
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -143,4 +144,63 @@ func getClientIP(r *http.Request) string {
 		return r.RemoteAddr
 	}
 	return host
+}
+
+func withLocalOriginGuard(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !isAPIRequestPath(r.URL.Path) || isTrustedLocalSource(r) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		writeError(w, http.StatusForbidden, NewAppError(ErrForbiddenOrigin, "request blocked by local origin policy", nil))
+	})
+}
+
+func isAPIRequestPath(path string) bool {
+	return strings.HasPrefix(strings.TrimSpace(path), "/api/")
+}
+
+func isTrustedLocalSource(r *http.Request) bool {
+	if r == nil {
+		return false
+	}
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	referer := strings.TrimSpace(r.Header.Get("Referer"))
+
+	// CLI / same-process calls may not carry these headers.
+	if origin == "" && referer == "" {
+		return true
+	}
+	if origin != "" && !isTrustedLocalURL(origin) {
+		return false
+	}
+	if referer != "" && !isTrustedLocalURL(referer) {
+		return false
+	}
+	return true
+}
+
+func isTrustedLocalURL(raw string) bool {
+	value := strings.TrimSpace(raw)
+	if value == "" || strings.EqualFold(value, "null") {
+		return false
+	}
+	parsed, err := url.Parse(value)
+	if err != nil {
+		return false
+	}
+	host := strings.TrimSpace(parsed.Hostname())
+	if host == "" {
+		return false
+	}
+	return isLoopbackHost(host)
+}
+
+func isLoopbackHost(host string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(host))
+	if normalized == "localhost" || normalized == "::1" || normalized == "127.0.0.1" {
+		return true
+	}
+	ip := net.ParseIP(normalized)
+	return ip != nil && ip.IsLoopback()
 }

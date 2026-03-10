@@ -305,7 +305,7 @@ func hasKGG(items []service.BatchItem) bool {
 	return false
 }
 
-func (h *ConvertHandler) convertSingleItem(ctx context.Context, item service.BatchItem, req *convertRequest, dbKeys map[string]string, progress func(string, int)) (string, error) {
+func (h *ConvertHandler) convertSingleItem(ctx context.Context, item service.BatchItem, req *convertRequest, dbKeys map[string]string, progress func(string, int)) (finalOutput string, retErr error) {
 	if progress != nil {
 		progress("prepare", 5)
 	}
@@ -320,6 +320,12 @@ func (h *ConvertHandler) convertSingleItem(ctx context.Context, item service.Bat
 		rawAudioExt string
 		audioReader io.Reader
 	)
+	reservedOutputPath := ""
+	defer func() {
+		if retErr != nil && strings.TrimSpace(reservedOutputPath) != "" {
+			removeQuiet(reservedOutputPath)
+		}
+	}()
 
 	if ext == ".kgg" {
 		if len(dbKeys) == 0 {
@@ -354,6 +360,7 @@ func (h *ConvertHandler) convertSingleItem(ctx context.Context, item service.Bat
 		if err != nil {
 			return "", err
 		}
+		reservedOutputPath = outputPath
 		if progress != nil {
 			progress("transcode", 80)
 		}
@@ -371,6 +378,7 @@ func (h *ConvertHandler) convertSingleItem(ctx context.Context, item service.Bat
 	if err != nil {
 		return "", err
 	}
+	reservedOutputPath = outputPath
 
 	if progress != nil {
 		progress("transcode", 80)

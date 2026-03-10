@@ -1,4 +1,6 @@
-﻿export function createConverterController(options) {
+import { toAbsoluteUrl } from "./utils.js";
+
+export function createConverterController(options) {
   const {
     state,
     elements,
@@ -67,12 +69,16 @@
   let activePreviewIndex = -1;
   let lastSubmittedSnapshot = [];
   let retryThrottleUntil = 0;
+  let completedSuccess = 0;
+  let completedFailed = 0;
+  const resultByCurrent = new Map();
 
   function resetPreviewPlayer() {
     activePreviewIndex = -1;
     if (previewAudio) {
       previewAudio.pause();
       previewAudio.removeAttribute("src");
+      previewAudio.removeAttribute("data-preview-src");
       previewAudio.load();
       previewAudio.classList.add("hidden");
     }
@@ -270,8 +276,11 @@
 
     try {
       const url = `/api/preview-file?path=${encodeURIComponent(outputPath)}&_ts=${Date.now()}`;
-      if (activePreviewIndex !== index || previewAudio.src !== url) {
+      const normalizedTarget = toAbsoluteUrl(url);
+      const normalizedCurrent = String(previewAudio.dataset.previewSrc || toAbsoluteUrl(previewAudio.currentSrc || previewAudio.src));
+      if (activePreviewIndex !== index || normalizedCurrent !== normalizedTarget) {
         previewAudio.src = url;
+        previewAudio.dataset.previewSrc = normalizedTarget;
       }
       await previewAudio.play();
       activePreviewIndex = index;
@@ -389,6 +398,9 @@
     state.progressTotal = total;
     state.failedResults = [];
     state.progressPulseDone = false;
+    completedSuccess = 0;
+    completedFailed = 0;
+    resultByCurrent.clear();
     pendingSseEvents = [];
     sseFramePending = false;
     successResults = [];
@@ -474,6 +486,59 @@
     refreshIcons();
   }
 
+  function flushPendingSseImmediately() {
+    if (!sseFramePending && pendingSseEvents.length === 0) return;
+    flushSseEvents();
+  }
+
+  function normalizeInputPathByItem(item) {
+    if (item?.source === "path") return String(item.fullPath || "").trim();
+    return "（上传文件，未提供原始绝对路径）";
+  }
+
+  function buildInterruptedSummary(expectedItems, outputDir) {
+    const total = Array.isArray(expectedItems) ? expectedItems.length : 0;
+    const results = Array.from(resultByCurrent.values()).sort((a, b) => (a.current || 0) - (b.current || 0));
+    const seenCurrent = new Set(results.map((item) => Number(item.current)));
+
+    for (let i = 0; i < total; i += 1) {
+      const current = i + 1;
+      if (seenCurrent.has(current)) continue;
+      const source = expectedItems[i] || {};
+      results.push({
+        file: source.name || `未知文件_${current}`,
+        input: normalizeInputPathByItem(source),
+        status: "error",
+        current,
+        total,
+        percent: 100,
+        error: {
+          code: "ERR_STREAM_DISCONNECTED",
+          userMessage: "连接中断，任务状态未知。",
+          suggestion: "请检查网络连接后，重试未完成文件。",
+          severity: "error",
+          detail: "SSE stream closed before complete event"
+        }
+      });
+    }
+
+    results.sort((a, b) => (a.current || 0) - (b.current || 0));
+    const finalFailed = Math.max(completedFailed, results.filter((item) => item.status === "error").length);
+    const finalSuccess = Math.max(completedSuccess, results.filter((item) => item.status === "ok").length);
+
+    return {
+      success: finalSuccess,
+      failed: finalFailed,
+      total,
+      outputDir: outputDir || outputDirInput.value.trim(),
+      durationMs: Math.max(0, Date.now() - (state.startedAt || Date.now())),
+      cancelled: true,
+      outputFormat: outputFormatSelect.value,
+      mp3Quality: Number.parseInt(mp3QualitySelect.value, 10) || 2,
+      results
+    };
+  }
+
   function applyProgressEvent(eventName, data) {
     if (eventName === "progress") {
       const processed = Number(data.bytesProcessed);
@@ -503,12 +568,14 @@
       updateProgressBar(data.percent, hasIssue ? "warning" : "normal");
 
       if (data.status === "ok") {
+        completedSuccess += 1;
         updateFileRow(data, "success", "- 转换成功");
         appendLog("success", `转换成功：${data.file}`);
         if (outputFormatSelect.value !== "copy" && /\.ogg$/i.test(String(data.output || ""))) {
           appendLog("warn", `已降级为原始格式输出：${data.file}（.ogg）`);
         }
       } else {
+        completedFailed += 1;
         state.hasFileError = true;
         const userMsg = data.error?.userMessage || "转换失败";
         const errCode = String(data.error?.code || "");
@@ -519,6 +586,7 @@
         }
         appendPayloadError(`转换失败：${data.file} | `, data.error);
       }
+      resultByCurrent.set(Number(data.current), { ...data });
       return;
     }
 
@@ -557,7 +625,7 @@
       throw error;
     }
 
-    await readSseStream(response, handleProgressEvent);
+    return readSseStream(response, handleProgressEvent);
   }
 
   function playCompleteTone() {
@@ -676,12 +744,22 @@
     try {
       state.abortController = new AbortController();
       setBusy(true);
-      await startConvertStream(formData, state.abortController.signal);
+      const streamResult = await startConvertStream(formData, state.abortController.signal);
+      flushPendingSseImmediately();
+      if (!state.lastSummary && !state.abortController.signal.aborted && !streamResult?.sawComplete) {
+        appendLog("error", "转换连接中断：未收到服务器完成事件，已按中断状态收敛结果。");
+        applyProgressEvent("complete", buildInterruptedSummary(items, outputDir));
+      }
       if (state.lastSummary) appendLog("info", `输出目录：${state.lastSummary.outputDir || outputDir}`);
     } catch (err) {
       if (err.name === "AbortError") appendLog("warn", "用户已取消转换。");
       else if (err?.payload) appendPayloadError("转换失败：", err.payload);
-      else appendLog("error", `转换失败：${err.message}`);
+      else {
+        appendLog("error", `转换失败：${err.message}`);
+        if (!state.lastSummary) {
+          applyProgressEvent("complete", buildInterruptedSummary(items, outputDir));
+        }
+      }
     } finally {
       state.abortController = null;
       setBusy(false);

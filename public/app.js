@@ -11,6 +11,7 @@ import { createConfigController } from "./modules/config.js";
 import { createConverterController } from "./modules/converter.js";
 import { createA11yAnnouncer } from "./modules/a11y.js";
 import { createDragDropController } from "./modules/dragdrop.js";
+import { escapeHtml, formatBytes, formatDuration } from "./modules/utils.js";
 
 function resolveAppVersion() {
   const htmlVersion = document.documentElement?.getAttribute("data-app-version");
@@ -52,12 +53,7 @@ const EXT_ICON_MAP = {
   ".ogg": "file-audio"
 };
 
-const LUCIDE_FALLBACK_CDNS = [
-  "https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js",
-  "https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js",
-  "https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js",
-  "https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"
-];
+const LUCIDE_FALLBACK_CDNS = [];
 
 const fileInput = document.getElementById("kggFiles");
 const pickFilesBtn = document.getElementById("pickFilesBtn");
@@ -126,6 +122,8 @@ const copyNamesBtn = document.getElementById("copyNamesBtn");
 const copyPathsBtn = document.getElementById("copyPathsBtn");
 const exportCsvBtn = document.getElementById("exportCsvBtn");
 const selectAllForConvert = document.getElementById("selectAllForConvert");
+const toggleLogsBtn = document.getElementById("toggleLogsBtn");
+const logsPanel = document.getElementById("logs-panel");
 
 const themeToggleBtn = document.getElementById("themeToggleBtn");
 const versionBadge = document.getElementById("versionBadge");
@@ -137,6 +135,7 @@ const configCard = document.getElementById("configCard");
 const configSummary = document.getElementById("configSummary");
 const configToggleBtn = document.getElementById("configToggleBtn");
 const bottomConfigSummary = document.getElementById("bottomConfigSummary");
+const bottomActionBar = document.getElementById("bottomActionBar");
 
 const state = {
   isBusy: false,
@@ -169,15 +168,6 @@ const toast = createToastManager({ host: toastHost, maxVisible: 3, defaultDurati
 
 function hasGSAP() {
   return typeof window !== "undefined" && Boolean(window.gsap);
-}
-
-function escapeHtml(str) {
-  return String(str ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }
 
 const iconToolkit = createIconToolkit({
@@ -340,24 +330,6 @@ function getExt(name) {
   return idx === -1 ? "" : String(name).slice(idx).toLowerCase();
 }
 
-function formatBytes(bytes) {
-  if (!bytes) return "0 B";
-  const kb = 1024;
-  const mb = kb * 1024;
-  const gb = mb * 1024;
-  if (bytes >= gb) return `${(bytes / gb).toFixed(1)} GB`;
-  if (bytes >= mb) return `${(bytes / mb).toFixed(1)} MB`;
-  if (bytes >= kb) return `${(bytes / kb).toFixed(1)} KB`;
-  return `${bytes} B`;
-}
-
-function formatDuration(ms) {
-  const sec = Math.max(0, Math.round(ms / 1000));
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${m}分${String(s).padStart(2, "0")}秒`;
-}
-
 async function fetchJson(url, options = {}) {
   const response = await fetch(url, options);
   const data = await response.json().catch(() => ({}));
@@ -467,6 +439,29 @@ function updateBottomActionSummary() {
   bottomConfigSummary.setAttribute("title", `输出目录：${outputDir}`);
 }
 
+function updateBottomSafeSpacing() {
+  const main = document.querySelector("main");
+  if (!main || !bottomActionBar) return;
+  const minPadding = 112;
+  const barHeight = Math.max(bottomActionBar.offsetHeight || 0, minPadding);
+  main.style.paddingBottom = `calc(${barHeight + 24}px + env(safe-area-inset-bottom, 0px))`;
+}
+
+function updateDropZoneCompactState() {
+  const hasPending = uploader.pendingCount() > 0;
+  dropZone.classList.toggle("drop-zone-mini", hasPending);
+}
+
+function toggleLogsPanel() {
+  if (!logsPanel) return;
+  const hidden = logsPanel.classList.toggle("hidden");
+  if (toggleLogsBtn) {
+    const label = hidden ? "查看转换日志与历史" : "收起转换日志与历史";
+    toggleLogsBtn.setAttribute("aria-expanded", hidden ? "false" : "true");
+    toggleLogsBtn.setAttribute("aria-label", label);
+  }
+}
+
 function setBusy(isBusy) {
   state.isBusy = isBusy;
   fileInput.disabled = isBusy;
@@ -488,9 +483,11 @@ function setBusy(isBusy) {
 function queueChanged() {
   uploader.renderFilePreview();
   uploader.updateFileSummary();
+  updateDropZoneCompactState();
   renderGlobalAlert();
   updateConvertButtonState();
   updateBottomActionSummary();
+  updateBottomSafeSpacing();
   if (configController) configController.updateConfigAutoCollapse();
 }
 
@@ -784,6 +781,7 @@ function bindEvents() {
   });
 
   themeToggleBtn.addEventListener("click", configController.toggleTheme);
+  if (toggleLogsBtn) toggleLogsBtn.addEventListener("click", toggleLogsPanel);
 
   pickFoldersBtn.addEventListener("click", () => {
     runWithButtonLoading(pickFoldersBtn, "选择中...", scanner.pickFolderForScan);
@@ -819,6 +817,9 @@ function bindEvents() {
       configController.setConfigCollapsed(!state.configCollapsed, true);
     });
   }
+
+  window.addEventListener("resize", updateBottomSafeSpacing);
+  window.addEventListener("orientationchange", updateBottomSafeSpacing);
 }
 
 (async function init() {
@@ -831,11 +832,17 @@ function bindEvents() {
   historyController.load();
   historyController.render();
   bindEvents();
+  if (toggleLogsBtn && logsPanel) {
+    toggleLogsBtn.setAttribute("aria-expanded", logsPanel.classList.contains("hidden") ? "false" : "true");
+    toggleLogsBtn.setAttribute("aria-controls", "logs-panel");
+  }
   scanner.renderFolderTags();
   configController.updateMp3QualityVisibility();
   configController.updateConfigAutoCollapse();
   uploader.renderFilePreview();
   uploader.updateFileSummary();
+  updateDropZoneCompactState();
+  updateBottomSafeSpacing();
   if (retryFailedBtn) retryFailedBtn.disabled = true;
   setBusy(false);
 

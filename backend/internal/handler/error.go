@@ -25,6 +25,7 @@ const (
 	ErrCancelled         = "ERR_CANCELLED"
 	ErrScanInvalidPath   = "ERR_SCAN_INVALID_PATH"
 	ErrInputPathDenied   = "ERR_INPUT_PATH_DENIED"
+	ErrForbiddenOrigin   = "ERR_FORBIDDEN_ORIGIN"
 )
 
 type AppError struct {
@@ -78,6 +79,7 @@ var errorCatalog = map[string]errorMeta{
 	ErrCancelled:         {userMessage: "转换已取消。", suggestion: "可重新发起转换任务。", severity: "warning"},
 	ErrScanInvalidPath:   {userMessage: "扫描路径无效。", suggestion: "请确认路径存在且为文件夹。", severity: "warning"},
 	ErrInputPathDenied:   {userMessage: "输入路径不在允许目录中。", suggestion: "仅允许转换用户目录中的文件。", severity: "warning"},
+	ErrForbiddenOrigin:   {userMessage: "请求来源不受信任。", suggestion: "请在本机页面中使用本工具，不要从第三方网页发起请求。", severity: "fatal"},
 }
 
 func NewAppError(code string, detail string, inner error) *AppError {

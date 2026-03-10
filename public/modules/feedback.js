@@ -9,7 +9,7 @@
     if (!text) return;
 
     const toast = document.createElement("div");
-    toast.className = `toast toast-${normalizeToastType(type)}`;
+    toast.className = `toast toast-enter toast-${normalizeToastType(type)}`;
     toast.setAttribute("role", "status");
     toast.textContent = text;
     host.appendChild(toast);
@@ -62,10 +62,22 @@ function normalizeToastType(type) {
 
 function removeToast(toast) {
   if (!toast || !toast.parentNode) return;
+  if (toast.dataset.removing === "1") return;
+
+  toast.dataset.removing = "1";
   toast.classList.remove("show");
-  window.setTimeout(() => {
+  toast.classList.remove("toast-enter");
+  toast.classList.add("toast-exit");
+
+  let cleaned = false;
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
     if (toast.parentNode) toast.parentNode.removeChild(toast);
-  }, 180);
+  };
+
+  toast.addEventListener("animationend", cleanup, { once: true });
+  window.setTimeout(cleanup, 320);
 }
 
 export async function withButtonLoading(button, runTask, options = {}) {

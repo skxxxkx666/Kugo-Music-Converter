@@ -5,37 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>酷狗/网易云加密音乐转换工具</title>
 <link rel="icon" href="./favicon.ico" />
-<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-<script>
-  tailwind.config = {
-    darkMode: "class",
-    theme: {
-      extend: {
-        colors: {
-          primary: "#0ea5e9",
-          secondary: "#10b981",
-          "background-light": "#f3f4f6",
-          "background-dark": "#0f172a",
-          "surface-light": "#ffffff",
-          "surface-dark": "#1e293b",
-          "text-light": "#1f2937",
-          "text-dark": "#e2e8f0",
-          "accent-dark": "#38bdf8",
-          "accent-light": "#0284c7"
-        },
-        fontFamily: {
-          display: ["Inter", "sans-serif"]
-        },
-        borderRadius: {
-          DEFAULT: "0.75rem"
-        }
-      }
-    }
-  };
-</script>
+<link rel="stylesheet" href="./vendor/tailwind.min.css" />
 <link rel="stylesheet" href="./style.css" />
 </head>
 <body class="app-loading bg-background-light dark:bg-background-dark text-text-light dark:text-text-dark font-display transition-colors duration-300 min-h-screen flex flex-col selection:bg-primary selection:text-white">
@@ -124,7 +94,7 @@
             <label for="outputFormat" class="text-xs font-medium text-gray-500 dark:text-gray-400">输出格式</label>
             <select id="outputFormat" class="w-full bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:ring-primary focus:border-primary dark:text-gray-300 shadow-sm" aria-describedby="runtimeStatus">
               <option value="copy">遵循原文件（不转码）</option>
-              <option value="mp3">MP3（兼容性最好）</option>
+              <option value="mp3" selected>MP3（兼容性最好）</option>
               <option value="flac">FLAC（无损）</option>
               <option value="wav">WAV（无压缩）</option>
             </select>
@@ -132,8 +102,8 @@
           <div class="space-y-1" id="mp3QualityWrap">
             <label for="mp3Quality" class="text-xs font-medium text-gray-500 dark:text-gray-400">MP3 质量</label>
             <select id="mp3Quality" class="w-full bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:ring-primary focus:border-primary dark:text-gray-300 shadow-sm" aria-label="MP3 转码质量">
-              <option value="0">极高（VBR ~245kbps）</option>
-              <option value="2" selected>高（VBR ~190kbps）</option>
+              <option value="0" selected>极高（VBR ~245kbps）</option>
+              <option value="2">高（VBR ~190kbps）</option>
               <option value="5">中（VBR ~130kbps）</option>
               <option value="7">低（VBR ~100kbps）</option>
             </select>
@@ -143,10 +113,10 @@
             <select id="concurrency" class="w-full bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:ring-primary focus:border-primary dark:text-gray-300 shadow-sm" aria-label="并发处理数量">
               <option value="1">1</option>
               <option value="2">2</option>
-              <option value="3" selected>3</option>
+              <option value="3">3</option>
               <option value="4">4</option>
               <option value="5">5</option>
-              <option value="6">6</option>
+              <option value="6" selected>6</option>
             </select>
           </div>
         </div>
@@ -297,7 +267,7 @@
 
   <!-- 日志切换按钮 -->
   <div class="flex justify-center">
-    <button type="button" class="text-xs text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary flex items-center gap-1 transition-colors bg-transparent border-0 p-1 min-h-0 shadow-none" onclick="document.getElementById('logs-panel').classList.toggle('hidden')">
+    <button id="toggleLogsBtn" type="button" class="text-xs text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary flex items-center gap-1 transition-colors bg-transparent border-0 p-1 min-h-0 shadow-none">
       <i data-lucide="history" class="w-4 h-4" aria-hidden="true"></i> 查看转换日志与历史
     </button>
   </div>
@@ -339,8 +309,8 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+<script src="./vendor/lucide.min.js"></script>
+<script src="./vendor/gsap.min.js"></script>
 <script>
   (function loadAppModule() {
     var root = document.documentElement;

@@ -23,7 +23,7 @@ var (
 
 const (
 	maxConcurrencyHardCap = 12
-	minConcurrency        = 2
+	minConcurrency        = 1
 	serverShutdownTimeout = 15 * time.Second
 	nonSSEWriteTimeout    = 30 * time.Second
 )
@@ -144,7 +144,7 @@ func StartServer(ctx context.Context, cfg *config.Config, appVersion string) err
 
 	srv := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           withWriteTimeout(logRequest(mux), nonSSEWriteTimeout, isSSERequest),
+		Handler:           withWriteTimeout(logRequest(withLocalOriginGuard(mux)), nonSSEWriteTimeout, isSSERequest),
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       120 * time.Second,
 	}

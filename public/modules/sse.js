@@ -2,27 +2,45 @@
   if (!response.body) {
     throw new Error("响应体为空，无法读取 SSE 流");
   }
+
   const reader = response.body.getReader();
   const decoder = new TextDecoder("utf-8");
   let buffer = "";
+  let sawComplete = false;
+  let sawError = false;
 
-  while (true) {
-    // eslint-disable-next-line no-await-in-loop
-    const { done, value } = await reader.read();
-    if (done) break;
+  const emit = (eventName, payload) => {
+    if (eventName === "complete") sawComplete = true;
+    if (eventName === "error") sawError = true;
+    if (typeof onEvent === "function") onEvent(eventName, payload);
+  };
 
-    buffer += decoder.decode(value, { stream: true });
+  try {
+    while (true) {
+      // eslint-disable-next-line no-await-in-loop
+      const { done, value } = await reader.read();
+      if (done) break;
 
-    let boundaryIndex = buffer.search(/\r?\n\r?\n/);
-    while (boundaryIndex !== -1) {
-      const rawEvent = buffer.slice(0, boundaryIndex);
-      buffer = buffer.slice(boundaryIndex).replace(/^\r?\n\r?\n/, "");
-      parseSseEvent(rawEvent, onEvent);
-      boundaryIndex = buffer.search(/\r?\n\r?\n/);
+      buffer += decoder.decode(value, { stream: true });
+
+      let boundaryIndex = buffer.search(/\r?\n\r?\n/);
+      while (boundaryIndex !== -1) {
+        const rawEvent = buffer.slice(0, boundaryIndex);
+        buffer = buffer.slice(boundaryIndex).replace(/^\r?\n\r?\n/, "");
+        parseSseEvent(rawEvent, emit);
+        boundaryIndex = buffer.search(/\r?\n\r?\n/);
+      }
     }
+
+    if (buffer.trim()) parseSseEvent(buffer, emit);
+  } finally {
+    reader.releaseLock();
   }
 
-  if (buffer.trim()) parseSseEvent(buffer, onEvent);
+  return {
+    sawComplete,
+    sawError
+  };
 }
 
 export function parseSseEvent(raw, onEvent) {
@@ -44,5 +62,5 @@ export function parseSseEvent(raw, onEvent) {
   } catch {
     payload = { raw: dataText };
   }
-  onEvent(eventName, payload);
+  if (typeof onEvent === "function") onEvent(eventName, payload);
 }

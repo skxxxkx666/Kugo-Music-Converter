@@ -29,6 +29,18 @@ func normalizePathKey(path string) string {
 	return strings.ToLower(filepath.Clean(path))
 }
 
+func resolveRealPath(path string) (string, error) {
+	absPath, err := filepath.Abs(strings.TrimSpace(path))
+	if err != nil {
+		return "", err
+	}
+	realPath, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Clean(realPath), nil
+}
+
 func (h *ConvertHandler) registerPreviewFiles(results []service.BatchFileDoneEvent) {
 	if len(results) == 0 {
 		return
@@ -56,12 +68,20 @@ func (h *ConvertHandler) registerPreviewFiles(results []service.BatchFileDoneEve
 		if err != nil {
 			continue
 		}
-		h.previewFiles[normalizePathKey(abs)] = now
+		realPath, err := resolveRealPath(abs)
+		if err != nil {
+			continue
+		}
+		h.previewFiles[normalizePathKey(realPath)] = now
 	}
 }
 
 func (h *ConvertHandler) canPreviewFile(path string) bool {
-	key := normalizePathKey(path)
+	realPath, err := resolveRealPath(path)
+	if err != nil {
+		return false
+	}
+	key := normalizePathKey(realPath)
 	now := time.Now()
 
 	h.previewMu.Lock()
@@ -95,18 +115,23 @@ func (h *ConvertHandler) HandlePreviewFile(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusBadRequest, NewAppError("ERR_UNKNOWN", "试听文件路径无效", err))
 		return
 	}
+	realPath, err := resolveRealPath(absPath)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, NewAppError("ERR_UNKNOWN", "试听文件路径解析失败", err))
+		return
+	}
 
-	ext := strings.ToLower(filepath.Ext(absPath))
+	ext := strings.ToLower(filepath.Ext(realPath))
 	if _, ok := previewAllowedExt[ext]; !ok {
 		writeError(w, http.StatusBadRequest, NewAppError(ErrUnsupportedFormat, "不支持试听该格式文件", nil))
 		return
 	}
-	if !h.canPreviewFile(absPath) {
+	if !h.canPreviewFile(realPath) {
 		writeError(w, http.StatusForbidden, NewAppError(ErrInputPathDenied, "该文件不在允许试听的转换结果中", nil))
 		return
 	}
 
-	file, err := os.Open(absPath)
+	file, err := os.Open(realPath)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if errors.Is(err, os.ErrNotExist) {
@@ -133,5 +158,5 @@ func (h *ConvertHandler) HandlePreviewFile(w http.ResponseWriter, r *http.Reques
 	}
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Cache-Control", "no-cache")
-	http.ServeContent(w, r, filepath.Base(absPath), st.ModTime(), file)
+	http.ServeContent(w, r, filepath.Base(realPath), st.ModTime(), file)
 }

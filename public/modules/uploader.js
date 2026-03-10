@@ -9,7 +9,7 @@ export function createUploaderController(options) {
   const { getExt, formatBytes, renderExtBadge, escapeHtml, setHintStatus, appendLog, refreshIcons } = helpers;
 
   let uploadFileIdSeed = 1;
-  const uploadFileIdMap = new WeakMap();
+  let uploadFileIdMap = new WeakMap();
 
   const virtual = {
     enabled: false,
@@ -17,6 +17,14 @@ export function createUploaderController(options) {
     scrollBound: false,
     rafPending: false
   };
+
+  function resetVirtualListState() {
+    virtual.enabled = false;
+    virtual.items = [];
+    virtual.rafPending = false;
+    filePreviewList.classList.remove("virtual-list");
+    filePreviewList.scrollTop = 0;
+  }
 
   function getUploadFileKey(file) {
     if (!uploadFileIdMap.has(file)) {
@@ -252,6 +260,11 @@ export function createUploaderController(options) {
   function clearQueue() {
     state.selectedFiles = [];
     state.pathQueue = [];
+    uploadFileIdSeed = 1;
+    uploadFileIdMap = new WeakMap();
+    state.filePreviewRowMap.clear();
+    resetVirtualListState();
+    filePreviewList.innerHTML = "";
   }
 
   function removeAt(source, index) {
