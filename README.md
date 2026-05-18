@@ -8,6 +8,8 @@
 
 酷狗 / 网易云加密音频批量转换工具，支持将 KGG、KGM、KGMA、VPR、NCM 等加密音频文件批量转换为 MP3、FLAC、WAV 格式。
 
+![Kugo Music Converter 界面预览](assets/screenshot.png)
+
 ---
 
 ## 下载安装
