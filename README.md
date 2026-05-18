@@ -12,11 +12,11 @@
 
 ## 下载安装
 
-**最新版本：v0.4.0**
+**最新版本：v0.5.0**
 
 | 文件 | 平台 | 说明 |
 |------|------|------|
-| [Kugo-Music-Converter-v0.4.0-windows-amd64.zip](https://github.com/skxxxkx666/Kugo-Music-Converter/releases/download/v0.4.0/Kugo-Music-Converter-v0.4.0-windows-amd64.zip) | Windows x64 | 解压即用，内含 ffmpeg |
+| [Kugo-Music-Converter-v0.5.0-windows-amd64.zip](https://github.com/skxxxkx666/Kugo-Music-Converter/releases/download/v0.5.0/Kugo-Music-Converter-v0.5.0-windows-amd64.zip) | Windows x64 | 解压即用，内含 ffmpeg |
 
 > 更多版本请前往 [Releases](https://github.com/skxxxkx666/Kugo-Music-Converter/releases) 页面。
 
