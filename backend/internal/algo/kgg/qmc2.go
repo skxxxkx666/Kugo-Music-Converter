@@ -1,7 +1,6 @@
 package kgg
 
 import (
-	"encoding/binary"
 	"errors"
 )
 
@@ -11,190 +10,175 @@ type QMC2Base interface {
 }
 
 // --- QMC2 MAP ---
+//
+// 实现与 unlock-music.dev/cli/algo/qmc 的 mapCipher 行为完全一致。
+//
+// 注意：getMask 中的位运算 (v<<r)|(v>>r) 并非标准循环移位 —— 左移与右移
+// 使用同一个位移量 r 并在 8 位内截断。这是酷狗 / QQ 音乐 QMC2 的既定算法，
+// 必须原样复刻。切勿“修正”为 (v<<r)|(v>>(8-r)) 的真实循环移位，否则除首
+// 字节外的解密结果全部错误（历史 bug：曾导致所有 MAP 模式 KGG 解密失败）。
 type qmc2Map struct {
-	key   [128]byte
-	first [0x8000]byte
-	loop  [0x7fff]byte
+	key  []byte
+	size int
 }
 
 func newQMC2Map(key []byte) *qmc2Map {
-	var q qmc2Map
-	n := len(key)
-	for i := 0; i < 128; i++ {
-		j := (i*i + 71214) % n
-		shift := (j + 4) % 8
-		q.key[i] = byte((uint16(key[j])<<shift | uint16(key[j])>>uint(8-shift)) & 0xFF)
+	k := append([]byte(nil), key...)
+	return &qmc2Map{key: k, size: len(k)}
+}
+
+func (q *qmc2Map) getMask(offset int) byte {
+	if offset > 0x7FFF {
+		offset %= 0x7FFF
 	}
-	for i := range q.first {
-		q.first[i] = q.key[i%len(q.key)]
-	}
-	for i := range q.loop {
-		q.loop[i] = q.key[i%len(q.key)]
-	}
-	return &q
+	idx := (offset*offset + 71214) % q.size
+	v := q.key[idx]
+	r := ((byte(idx) & 0x7) + 4) % 8
+	return (v << r) | (v >> r)
 }
 
 func (q *qmc2Map) Decrypt(buf []byte, offset uint64) {
-	if len(buf) == 0 {
-		return
+	base := int(offset)
+	for i := range buf {
+		buf[i] ^= q.getMask(base + i)
 	}
-
-	if offset <= 0x7FFF {
-		firstRemain := int(0x8000 - offset)
-		n := min(len(buf), firstRemain)
-		xorWithTable(buf[:n], q.first[:], int(offset))
-		buf = buf[n:]
-		offset += uint64(n)
-	}
-
-	if len(buf) == 0 {
-		return
-	}
-	xorWithTable(buf, q.loop[:], int(offset%0x7fff))
 }
 
 // --- QMC2 RC4 ---
+//
+// 忠实移植自 unlock-music.dev/cli/algo/qmc 的 rc4Cipher。
+//
+// 关键点（历史 bug：旧实现用定长预计算 keyStream + skip&0x1FF，仅在密钥恰好
+// 512 字节时碰巧正确，其它 RC4 密钥长度全部解密错误）：
+//   - getSegmentSkip 使用 idx % len(key)（而非 & 0x1FF）；
+//   - 每个段（encASegment）都以 KSA box 的副本重新跑 PRGA，先丢弃
+//     skipLen=(offset%5120)+getSegmentSkip(id) 个输出再异或；
+//   - getSegmentSkip 的零 seed 行为刻意与 unlock-music 保持一致（不额外保护），
+//     以保证与标准实现逐字节等价。
+const (
+	rc4SegmentSize      = 5120
+	rc4FirstSegmentSize = 128
+)
+
 type qmc2RC4 struct {
-	key       []byte
-	hash100   uint64
-	keyStream [0x1400 + 512]byte
+	box  []byte
+	key  []byte
+	hash uint32
+	n    int
 }
 
 func newQMC2RC4(key []byte) *qmc2RC4 {
-	q := &qmc2RC4{key: append([]byte(nil), key...)}
-	q.hash100 = rc4hash100(key)
-	// derive stream
-	var rc rc4KeySched
-	rc.init(key)
-	rc.derive(q.keyStream[:])
-	return q
-}
-
-func (q *qmc2RC4) Decrypt(buf []byte, offset uint64) {
-	if offset < 0x80 { // first segment
-		n := q.decryptFirst(buf, offset)
-		offset += uint64(n)
-		buf = buf[n:]
-	}
-	for len(buf) > 0 {
-		n := q.decryptOther(buf, offset)
-		offset += uint64(n)
-		buf = buf[n:]
-	}
-}
-
-func (q *qmc2RC4) decryptFirst(buf []byte, offset uint64) int {
-	n := len(q.key)
-	process := int(min(uint64(len(buf)), 0x80-offset))
-	for i := 0; i < process; i++ {
-		idx := int(getSegmentKey(q.hash100, offset, q.key[offset%uint64(n)]) % uint64(n))
-		buf[i] ^= q.key[idx]
-		offset++
-	}
-	return process
-}
-
-func (q *qmc2RC4) decryptOther(buf []byte, offset uint64) int {
-	n := len(q.key)
-	segIdx := offset / 0x1400
-	segOff := offset % 0x1400
-	skip := getSegmentKey(q.hash100, segIdx, q.key[segIdx%uint64(n)]) & 0x1FF
-	process := int(min(uint64(len(buf)), 0x1400-segOff))
-	streamStart := int(skip + segOff)
-	stream := q.keyStream[streamStart:]
-	xorContiguous(buf[:process], stream[:process])
-	return process
-}
-
-func getSegmentKey(hash100 uint64, segmentID uint64, seed byte) uint64 {
-	if seed == 0 {
-		return 0
-	}
-	return hash100 / (uint64(seed) * (segmentID + 1))
-}
-
-func rc4hash100(key []byte) uint64 {
-	var h uint32 = 1
-	for _, b := range key {
-		if b == 0 {
-			continue
-		}
-		next := h * uint32(b)
-		if next <= h {
-			break
-		}
-		h = next
-	}
-	return uint64(h) * 100
-}
-
-// --- RC4 KSA/PRGA (only derive keystream) ---
-type rc4KeySched struct {
-	s    []byte
-	i, j int
-}
-
-func (r *rc4KeySched) init(key []byte) {
 	n := len(key)
-	r.s = make([]byte, n)
+	c := &qmc2RC4{key: append([]byte(nil), key...), n: n}
+	c.box = make([]byte, n)
 	for i := 0; i < n; i++ {
-		r.s[i] = byte(i)
+		c.box[i] = byte(i)
 	}
 	j := 0
 	for i := 0; i < n; i++ {
-		j = (j + int(r.s[i]) + int(key[i])) % n
-		r.s[i], r.s[j] = r.s[j], r.s[i]
+		j = (j + int(c.box[i]) + int(c.key[i%n])) % n
+		c.box[i], c.box[j] = c.box[j], c.box[i]
 	}
-	r.i, r.j = 0, 0
+	c.getHashBase()
+	return c
 }
 
-func (r *rc4KeySched) derive(out []byte) {
-	n := len(r.s)
-	i, j := r.i, r.j
-	s := r.s
-	for k := range out {
-		i = (i + 1) % n
-		j = (j + int(s[i])) % n
-		s[i], s[j] = s[j], s[i]
-		out[k] ^= s[(int(s[i])+int(s[j]))%n]
-	}
-	r.i, r.j = i, j
-}
-
-func xorContiguous(dst, key []byte) {
-	i := 0
-	for ; i+8 <= len(dst); i += 8 {
-		v := binary.LittleEndian.Uint64(dst[i:]) ^ binary.LittleEndian.Uint64(key[i:])
-		binary.LittleEndian.PutUint64(dst[i:], v)
-	}
-	for ; i < len(dst); i++ {
-		dst[i] ^= key[i]
+func (c *qmc2RC4) getHashBase() {
+	c.hash = 1
+	for i := 0; i < c.n; i++ {
+		v := uint32(c.key[i])
+		if v == 0 {
+			continue
+		}
+		nextHash := c.hash * v
+		if nextHash == 0 || nextHash <= c.hash {
+			break
+		}
+		c.hash = nextHash
 	}
 }
 
-func xorWithTable(dst, table []byte, start int) {
-	if len(dst) == 0 || len(table) == 0 {
-		return
+func (c *qmc2RC4) Decrypt(buf []byte, offset uint64) {
+	src := buf
+	off := int(offset)
+	toProcess := len(src)
+	processed := 0
+	markProcess := func(p int) (finished bool) {
+		off += p
+		toProcess -= p
+		processed += p
+		return toProcess == 0
 	}
-	idx := start % len(table)
-	for len(dst) > 0 {
-		n := min(len(dst), len(table)-idx)
-		xorContiguous(dst[:n], table[idx:idx+n])
-		dst = dst[n:]
-		idx = 0
+
+	if off < rc4FirstSegmentSize {
+		blockSize := toProcess
+		if blockSize > rc4FirstSegmentSize-off {
+			blockSize = rc4FirstSegmentSize - off
+		}
+		c.encFirstSegment(src[:blockSize], off)
+		if markProcess(blockSize) {
+			return
+		}
 	}
+
+	if off%rc4SegmentSize != 0 {
+		blockSize := toProcess
+		if blockSize > rc4SegmentSize-off%rc4SegmentSize {
+			blockSize = rc4SegmentSize - off%rc4SegmentSize
+		}
+		c.encASegment(src[processed:processed+blockSize], off)
+		if markProcess(blockSize) {
+			return
+		}
+	}
+	for toProcess > rc4SegmentSize {
+		c.encASegment(src[processed:processed+rc4SegmentSize], off)
+		markProcess(rc4SegmentSize)
+	}
+
+	if toProcess > 0 {
+		c.encASegment(src[processed:], off)
+	}
+}
+
+func (c *qmc2RC4) encFirstSegment(buf []byte, offset int) {
+	for i := 0; i < len(buf); i++ {
+		buf[i] ^= c.key[c.getSegmentSkip(offset+i)]
+	}
+}
+
+func (c *qmc2RC4) encASegment(buf []byte, offset int) {
+	box := make([]byte, c.n)
+	copy(box, c.box)
+	j, k := 0, 0
+
+	skipLen := (offset % rc4SegmentSize) + c.getSegmentSkip(offset/rc4SegmentSize)
+	for i := -skipLen; i < len(buf); i++ {
+		j = (j + 1) % c.n
+		k = (int(box[j]) + k) % c.n
+		box[j], box[k] = box[k], box[j]
+		if i >= 0 {
+			buf[i] ^= box[(int(box[j])+int(box[k]))%c.n]
+		}
+	}
+}
+
+func (c *qmc2RC4) getSegmentSkip(id int) int {
+	seed := int(c.key[id%c.n])
+	idx := int64(float64(c.hash) / float64((id+1)*seed) * 100.0)
+	return int(idx % int64(c.n))
 }
 
 // --- EKey ---
 // CreateQMC2 builds the QMC2 decryptor from decrypted ekey payload.
-// Short keys (<300 bytes) use map mode; longer keys use rc4 mode.
+// 与 unlock-music 一致：len(key) > 300 用 RC4，否则用 MAP。
 func CreateQMC2(ekey string) (QMC2Base, error) {
 	key := decryptEkey(ekey)
 	if len(key) == 0 {
 		return nil, errors.New("invalid ekey")
 	}
-	if len(key) < 300 {
-		return newQMC2Map(key), nil
+	if len(key) > 300 {
+		return newQMC2RC4(key), nil
 	}
-	return newQMC2RC4(key), nil
+	return newQMC2Map(key), nil
 }

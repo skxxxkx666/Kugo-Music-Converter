@@ -496,7 +496,25 @@ export function createConverterController(options) {
     return "（上传文件，未提供原始绝对路径）";
   }
 
-  function buildInterruptedSummary(expectedItems, outputDir) {
+  // 中断错误分型（F-5008，落地 v0.4.1）。本项目为本地文件 + 本地 HTTP
+  // 通信，连接异常应优先指向“本地服务链路”，而非“互联网网络”。
+  const INTERRUPT_KINDS = {
+    backendUnreachable: {
+      code: "ERR_BACKEND_UNREACHABLE",
+      userMessage: "未连接到本地转换服务。",
+      suggestion: "请通过 start.hta 或 start.bat 启动程序，并从 http://localhost:8080 打开页面（不要直接双击 public/index.html）。",
+      detail: "fetch /api/convert-stream failed before any SSE event"
+    },
+    streamNoComplete: {
+      code: "ERR_STREAM_NO_COMPLETE",
+      userMessage: "本地转换连接中断，任务状态未知。",
+      suggestion: "请检查本机安全软件/代理/进程稳定性后，重试未完成文件。",
+      detail: "SSE stream closed before complete event"
+    }
+  };
+
+  function buildInterruptedSummary(expectedItems, outputDir, kind) {
+    const classification = kind || INTERRUPT_KINDS.streamNoComplete;
     const total = Array.isArray(expectedItems) ? expectedItems.length : 0;
     const results = Array.from(resultByCurrent.values()).sort((a, b) => (a.current || 0) - (b.current || 0));
     const seenCurrent = new Set(results.map((item) => Number(item.current)));
@@ -513,11 +531,11 @@ export function createConverterController(options) {
         total,
         percent: 100,
         error: {
-          code: "ERR_STREAM_DISCONNECTED",
-          userMessage: "连接中断，任务状态未知。",
-          suggestion: "请检查网络连接后，重试未完成文件。",
+          code: classification.code,
+          userMessage: classification.userMessage,
+          suggestion: classification.suggestion,
           severity: "error",
-          detail: "SSE stream closed before complete event"
+          detail: classification.detail
         }
       });
     }
@@ -628,6 +646,20 @@ export function createConverterController(options) {
     return readSseStream(response, handleProgressEvent);
   }
 
+  // 转换前本地服务健康守卫（F-5008）：拦截“后端未启动 / 页面非 localhost
+  // 服务页”等场景，避免落入“请检查网络连接”的误导文案。
+  async function checkBackendHealth() {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 4000);
+      const resp = await fetch("/api/health", { method: "GET", signal: ctrl.signal });
+      clearTimeout(timer);
+      return resp.ok;
+    } catch {
+      return false;
+    }
+  }
+
   function playCompleteTone() {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (!AudioCtx) return;
@@ -699,6 +731,13 @@ export function createConverterController(options) {
       return;
     }
 
+    const healthy = await checkBackendHealth();
+    if (!healthy) {
+      appendLog("error", "未连接到本地转换服务，请先通过 start.hta 或 start.bat 启动程序，并从 http://localhost:8080 打开页面（不要直接双击 public/index.html）。");
+      toastInfo("本地转换服务未连接");
+      return;
+    }
+
     const uploadSnapshot = getSelectedFiles().slice();
     const pathSnapshot = getPathQueue().map((item) => ({ ...item }));
     lastSubmittedSnapshot = items.map((item) => {
@@ -747,17 +786,36 @@ export function createConverterController(options) {
       const streamResult = await startConvertStream(formData, state.abortController.signal);
       flushPendingSseImmediately();
       if (!state.lastSummary && !state.abortController.signal.aborted && !streamResult?.sawComplete) {
-        appendLog("error", "转换连接中断：未收到服务器完成事件，已按中断状态收敛结果。");
-        applyProgressEvent("complete", buildInterruptedSummary(items, outputDir));
+        appendLog(
+          "error",
+          `转换连接中断：未收到完成事件（sawAnyEvent=${!!streamResult?.sawAnyEvent} sawComplete=${!!streamResult?.sawComplete} sawError=${!!streamResult?.sawError}），已按中断状态收敛结果。`
+        );
+        // 收到过事件但无 complete → 中途断流；从未收到任何事件 → 后端不可达
+        const kind = streamResult?.sawAnyEvent
+          ? INTERRUPT_KINDS.streamNoComplete
+          : INTERRUPT_KINDS.backendUnreachable;
+        appendLog(
+          kind === INTERRUPT_KINDS.backendUnreachable ? "error" : "warn",
+          kind.suggestion
+        );
+        applyProgressEvent("complete", buildInterruptedSummary(items, outputDir, kind));
       }
       if (state.lastSummary) appendLog("info", `输出目录：${state.lastSummary.outputDir || outputDir}`);
     } catch (err) {
-      if (err.name === "AbortError") appendLog("warn", "用户已取消转换。");
-      else if (err?.payload) appendPayloadError("转换失败：", err.payload);
-      else {
-        appendLog("error", `转换失败：${err.message}`);
+      if (err.name === "AbortError") {
+        appendLog("warn", "用户已取消转换。");
+      } else if (err?.payload) {
+        appendPayloadError("转换失败：", err.payload);
+      } else {
+        // fetch 抛异常且无标准 payload：本地服务不可达 / 页面上下文错误 /
+        // 请求被本机环境中断。归类为“后端不可达”，给出本地服务建议。
+        appendLog("error", `转换失败：${err?.name || "Error"}: ${err?.message || "未知错误"}`);
         if (!state.lastSummary) {
-          applyProgressEvent("complete", buildInterruptedSummary(items, outputDir));
+          appendLog("error", INTERRUPT_KINDS.backendUnreachable.suggestion);
+          applyProgressEvent(
+            "complete",
+            buildInterruptedSummary(items, outputDir, INTERRUPT_KINDS.backendUnreachable)
+          );
         }
       }
     } finally {

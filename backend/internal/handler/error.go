@@ -26,6 +26,11 @@ const (
 	ErrScanInvalidPath   = "ERR_SCAN_INVALID_PATH"
 	ErrInputPathDenied   = "ERR_INPUT_PATH_DENIED"
 	ErrForbiddenOrigin   = "ERR_FORBIDDEN_ORIGIN"
+	// 以下三个为前端在 SSE 链路异常时合成的错误码，登记于此以保持错误码
+	// 目录权威、文案统一（F-5008，落地 v0.4.1 RC-5008）。
+	ErrBackendUnreachable = "ERR_BACKEND_UNREACHABLE"
+	ErrStreamNoComplete   = "ERR_STREAM_NO_COMPLETE"
+	ErrStreamDisconnected = "ERR_STREAM_DISCONNECTED" // 兼容旧码（过渡期保留）
 )
 
 type AppError struct {
@@ -80,6 +85,9 @@ var errorCatalog = map[string]errorMeta{
 	ErrScanInvalidPath:   {userMessage: "扫描路径无效。", suggestion: "请确认路径存在且为文件夹。", severity: "warning"},
 	ErrInputPathDenied:   {userMessage: "输入路径不在允许目录中。", suggestion: "仅允许转换用户目录中的文件。", severity: "warning"},
 	ErrForbiddenOrigin:   {userMessage: "请求来源不受信任。", suggestion: "请在本机页面中使用本工具，不要从第三方网页发起请求。", severity: "fatal"},
+	ErrBackendUnreachable: {userMessage: "未连接到本地转换服务。", suggestion: "请通过 start.hta 或 start.bat 启动程序，并从 http://localhost:8080 打开页面。", severity: "fatal"},
+	ErrStreamNoComplete:   {userMessage: "本地转换连接中断，任务状态未知。", suggestion: "请检查本机安全软件/代理/进程稳定性后，重试未完成文件。", severity: "error"},
+	ErrStreamDisconnected: {userMessage: "本地服务连接中断，任务状态未知。", suggestion: "请检查本地服务连接（localhost:8080）后，重试未完成文件。", severity: "error"},
 }
 
 func NewAppError(code string, detail string, inner error) *AppError {

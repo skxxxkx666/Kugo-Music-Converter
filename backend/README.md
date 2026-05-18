@@ -155,3 +155,34 @@ $env:LOG_LEVEL="DEBUG"; ./bin/kugo-converter.exe
 | `parse_form_memory` | 32 MB | 表单解析内存限制 |
 
 支持 YAML 配置文件、环境变量 (`KGG_ADDR`, `KGG_FFMPEG_BIN` 等) 和 CLI 参数三种方式，优先级：CLI > 环境变量 > YAML > 默认值。
+
+## 8. Tailwind 重新编译（离线，可选）
+
+前端样式已预编译为 `public/vendor/tailwind.min.css`，**正常运行无需 Node 环境**。
+仅当修改了 `public/**` 的类名需要重建样式时，按以下步骤操作：
+
+```bash
+npm install -D tailwindcss @tailwindcss/forms @tailwindcss/typography
+npx tailwindcss -c tailwind.config.js -i public/src/input.css -o public/vendor/tailwind.min.css --minify
+```
+
+`tailwind.config.js` 中两个插件（`@tailwindcss/forms`、`@tailwindcss/typography`）
+已改为**可选加载**：未安装时自动跳过，重编译不会因缺插件而失败（缺插件时
+仅少量表单/排版样式不会生成，建议尽量按上面命令一并安装）。
+
+## 9. 解密层说明（v0.5.0）
+
+`internal/algo/kgg` 为自研实现，已与 `unlock-music.dev/cli` 的标准实现逐行
+对照并以真实文件逐字节回归：
+
+- QMC2 MAP / RC4、ekey(V1/V2 TEA-CBC)、KGMusicV3.db 解密均与 unlock-music 等价；
+- KGMusicV3.db **全程内存解密**（不再写明文到 `%TEMP%`），页 1 带完整性校验，
+  master key 支持 `KGG_DB_MASTER_KEY`（hex）环境变量覆盖；
+- 解库结果按 `dbPath + 大小 + mtime` 进程级缓存（用户重载 DB 后自动失效）。
+
+回归测试（默认跳过，需真实样本）：
+
+```powershell
+$env:KGG_DB="...\KGMusicV3.db"; $env:KGG_FILE="...\song.kgg"
+go test ./internal/algo/kgg/ -run "TestOracleRealFileRegression|TestLoadKGDatabaseKeyMap" -v
+```

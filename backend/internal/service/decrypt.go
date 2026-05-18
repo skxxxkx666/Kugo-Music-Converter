@@ -213,7 +213,7 @@ func (s *DecryptService) decryptKggWithProvider(inPath string, provider kgg.KeyP
 		if err != nil {
 			_ = f.Close()
 			switch {
-			case errors.Is(err, kgg.ErrUnsupportedMode):
+			case errors.Is(err, kgg.ErrUnsupportedMode), errors.Is(err, kgg.ErrInvalidKGGHeader):
 				return nil, fmt.Errorf("%w: %v", ErrUnsupportedInput, err)
 			case errors.Is(err, kgg.ErrKeyNotFound):
 				return nil, fmt.Errorf("%w: %v", ErrMissingKGGKey, err)

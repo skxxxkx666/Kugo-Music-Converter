@@ -6,10 +6,12 @@
   const reader = response.body.getReader();
   const decoder = new TextDecoder("utf-8");
   let buffer = "";
+  let sawAnyEvent = false;
   let sawComplete = false;
   let sawError = false;
 
   const emit = (eventName, payload) => {
+    sawAnyEvent = true;
     if (eventName === "complete") sawComplete = true;
     if (eventName === "error") sawError = true;
     if (typeof onEvent === "function") onEvent(eventName, payload);
@@ -38,6 +40,7 @@
   }
 
   return {
+    sawAnyEvent,
     sawComplete,
     sawError
   };

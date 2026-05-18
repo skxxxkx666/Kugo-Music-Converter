@@ -91,10 +91,5 @@ func DetectKGMusicDB(baseDir string) DBStatus {
 }
 
 func LoadDBKeyMap(dbPath string) (map[string]string, error) {
-	decPath, cleanup, err := kgg.DecryptKGDatabaseToFile(dbPath)
-	if err != nil {
-		return nil, err
-	}
-	defer cleanup()
-	return kgg.ReadShareFileItems(decPath)
+	return kgg.LoadKGDatabaseKeyMap(dbPath)
 }
