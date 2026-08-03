@@ -141,7 +141,7 @@ func (h *ConvertHandler) HandleConvertStream(w http.ResponseWriter, r *http.Requ
 
 	req, err := h.parseConvertRequest(w, r)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, requestErrorStatus(err), err)
 		return
 	}
 	defer req.Cleanup()

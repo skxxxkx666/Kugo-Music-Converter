@@ -54,7 +54,7 @@ func DefaultConfig() *Config {
 		Addr:            ":8080",
 		FFmpegBin:       "tools/ffmpeg.exe",
 		PublicDir:       "public",
-		MaxFileSize:     80 << 20,
+		MaxFileSize:     1 << 30,
 		MaxFiles:        500,
 		DefaultOutput:   "",
 		Concurrency:     runtimeDefaultConcurrency(),
@@ -122,7 +122,7 @@ func LoadConfig(configPath, addr, ffmpegBin string, addrSet, ffmpegSet bool) (*C
 		cfg.MaxFiles = 500
 	}
 	if cfg.MaxFileSize <= 0 {
-		cfg.MaxFileSize = 80 << 20
+		cfg.MaxFileSize = 1 << 30
 	}
 	if cfg.ParseFormMemory <= 0 {
 		cfg.ParseFormMemory = 32 << 20

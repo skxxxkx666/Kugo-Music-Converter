@@ -14,11 +14,15 @@
 
 ## 下载安装
 
-**最新版本：v0.5.0**
+**最新版本：v0.5.1**
 
 | 文件 | 平台 | 说明 |
 |------|------|------|
-| [Kugo-Music-Converter-v0.5.0-windows-amd64.zip](https://github.com/skxxxkx666/Kugo-Music-Converter/releases/download/v0.5.0/Kugo-Music-Converter-v0.5.0-windows-amd64.zip) | Windows x64 | 解压即用，内含 ffmpeg |
+| [Kugo-Music-Converter-v0.5.1-windows-amd64.zip](https://github.com/skxxxkx666/Kugo-Music-Converter/releases/download/v0.5.1/Kugo-Music-Converter-v0.5.1-windows-amd64.zip) | Windows x64 | 解压即用，内含 ffmpeg |
+
+> 系统要求：Windows 10 / 11（64 位），无需安装任何运行时环境。
+>
+> Windows 7 不在支持范围内。
 
 > 更多版本请前往 [Releases](https://github.com/skxxxkx666/Kugo-Music-Converter/releases) 页面。
 
@@ -44,6 +48,10 @@
 | 输入格式 | 输出格式 |
 |----------|----------|
 | `.kgg` `.kgm` `.kgma` `.vpr` `.ncm` | `MP3` `FLAC` `WAV` `原格式（Copy）` |
+
+> 默认单文件上限为 1 GiB；如需调整，可通过配置文件的 `max_file_size`
+> 或环境变量 `KGG_MAX_FILE_SIZE` 指定字节数。浏览器单次上传总计上限为
+> 2028 MiB，超过时请分批处理，或使用目录扫描将本地路径加入队列。
 
 ## 快速开始
 
@@ -123,6 +131,9 @@ Windows 系统中 DB 文件常见路径：
 ## 从源码构建
 
 请参阅 [backend/README.md](backend/README.md) 了解构建步骤和 API 文档。
+
+在 Windows PowerShell 中运行 `./build-release.ps1`，可执行完整测试、构建
+Windows amd64 后端，并生成经过内容和版本校验的发布 ZIP。
 
 ## 更新日志
 

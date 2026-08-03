@@ -211,6 +211,7 @@
     if (config.limits) {
       state.maxFileCount = Number(config.limits.maxFileCount) || state.maxFileCount;
       state.maxFileSizeMB = Number(config.limits.maxFileSizeMB) || state.maxFileSizeMB;
+      state.maxUploadTotalMB = Number(config.limits.maxUploadTotalMB) || state.maxUploadTotalMB;
     }
 
     if (Array.isArray(config.supportedFormats) && config.supportedFormats.length > 0) {
@@ -242,7 +243,7 @@
       setHintStatus(
         runtimeStatus,
         "success",
-        `运行时检查通过。限制：最多 ${state.maxFileCount} 个文件，单文件 ${state.maxFileSizeMB}MB。`
+        `运行时检查通过。限制：最多 ${state.maxFileCount} 个文件，单文件 ${state.maxFileSizeMB}MB，单次上传总计 ${state.maxUploadTotalMB}MB。`
       );
     }
 

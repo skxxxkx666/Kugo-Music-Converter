@@ -3,11 +3,52 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	"kugo-music-converter/internal/config"
 )
+
+func TestHandleConfigReportsOneGiBDefaultFileLimit(t *testing.T) {
+	cfg := config.DefaultConfig()
+	h := &ConvertHandler{cfg: cfg, baseDir: t.TempDir()}
+	req := httptest.NewRequest(http.MethodGet, "/api/config", nil)
+	rec := httptest.NewRecorder()
+
+	h.HandleConfig(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+	var response struct {
+		Limits struct {
+			MaxFileSizeMB    int `json:"maxFileSizeMB"`
+			MaxUploadTotalMB int `json:"maxUploadTotalMB"`
+		} `json:"limits"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode config response: %v", err)
+	}
+	if response.Limits.MaxFileSizeMB != 1024 {
+		t.Fatalf("expected API file limit 1024 MiB, got %d", response.Limits.MaxFileSizeMB)
+	}
+	if response.Limits.MaxUploadTotalMB != 2028 {
+		t.Fatalf("expected API upload total limit 2028 MiB, got %d", response.Limits.MaxUploadTotalMB)
+	}
+}
+
+func TestRequestErrorStatusUsesPayloadTooLarge(t *testing.T) {
+	if got := requestErrorStatus(NewAppError(ErrFileTooLarge, "too large", nil)); got != http.StatusRequestEntityTooLarge {
+		t.Fatalf("expected status %d, got %d", http.StatusRequestEntityTooLarge, got)
+	}
+	if got := requestErrorStatus(errors.New("bad request")); got != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, got)
+	}
+}
 
 func TestNormalizeLocalInputPath(t *testing.T) {
 	tmp := t.TempDir()

@@ -147,7 +147,8 @@ const state = {
   autoDbFound: false,
   manualDbValid: false,
   maxFileCount: 500,
-  maxFileSizeMB: 80,
+  maxFileSizeMB: 1024,
+  maxUploadTotalMB: 2028,
   supportedFormats: SUPPORTED_EXTS,
   startedAt: 0,
   hasFileError: false,
@@ -672,11 +673,22 @@ const dragDropController = createDragDropController({
   prefersReducedMotion,
   pulseDropZone,
   onFilesDropped: async (droppedFiles) => {
-    uploader.mergeFiles(droppedFiles);
-    appendLog("info", `拖放已加入 ${droppedFiles.length} 个文件候选。`);
+    const stats = uploader.mergeFiles(droppedFiles);
+    logMergeResult("拖放", stats);
     queueChanged();
   }
 });
+
+function logMergeResult(source, stats) {
+  const skipped = stats.unsupported + stats.tooLarge + stats.duplicate + stats.blockedByLimit;
+  const details = [];
+  if (stats.unsupported > 0) details.push(`格式不支持 ${stats.unsupported}`);
+  if (stats.tooLarge > 0) details.push(`文件过大 ${stats.tooLarge}`);
+  if (stats.duplicate > 0) details.push(`重复 ${stats.duplicate}`);
+  if (stats.blockedByLimit > 0) details.push(`超过数量上限 ${stats.blockedByLimit}`);
+  const suffix = details.length > 0 ? `（${details.join("，")}）` : "";
+  appendLog(skipped > 0 ? "warn" : "success", `${source}处理完成：已加入 ${stats.added} 个，跳过 ${skipped} 个${suffix}。`);
+}
 
 function exportLogs() {
   const lines = Array.from(logBox.querySelectorAll(".log-line")).map((line) => line.textContent);
@@ -703,7 +715,8 @@ async function copyTextToClipboard(text, okMessage) {
 function bindEvents() {
   pickFilesBtn.addEventListener("click", () => fileInput.click());
   fileInput.addEventListener("change", () => {
-    uploader.mergeFiles(fileInput.files);
+    const stats = uploader.mergeFiles(fileInput.files);
+    logMergeResult("文件选择", stats);
     fileInput.value = "";
     queueChanged();
   });

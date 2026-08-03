@@ -5,8 +5,9 @@ import (
 )
 
 type limitsResp struct {
-	MaxFileCount  int `json:"maxFileCount"`
-	MaxFileSizeMB int `json:"maxFileSizeMB"`
+	MaxFileCount     int `json:"maxFileCount"`
+	MaxFileSizeMB    int `json:"maxFileSizeMB"`
+	MaxUploadTotalMB int `json:"maxUploadTotalMB"`
 }
 
 type configResp struct {
@@ -32,8 +33,9 @@ func (h *ConvertHandler) HandleConfig(w http.ResponseWriter, r *http.Request) {
 		MissingTools:     missingTools,
 		DB:               db,
 		Limits: limitsResp{
-			MaxFileCount:  h.cfg.MaxFiles,
-			MaxFileSizeMB: int(h.cfg.MaxFileSize / (1024 * 1024)),
+			MaxFileCount:     h.cfg.MaxFiles,
+			MaxFileSizeMB:    int(h.cfg.MaxFileSize / (1024 * 1024)),
+			MaxUploadTotalMB: int(maxUploadTotalBytes / (1024 * 1024)),
 		},
 		RuntimeReady:     len(missingTools) == 0,
 		SupportedFormats: supportedInputExts,

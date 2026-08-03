@@ -67,24 +67,24 @@ type errorMeta struct {
 }
 
 var errorCatalog = map[string]errorMeta{
-	ErrDBNotFound:        {userMessage: "未找到 KGMusicV3.db 数据库文件。", suggestion: "KGG 格式转换需要数据库，请先配置 KGMusicV3.db。", severity: "fatal"},
-	ErrDecryptFailed:     {userMessage: "解密失败，未生成可用音频文件。", suggestion: "请确认输入文件完整可用后重试。", severity: "error"},
-	ErrDecryptKeyExpired: {userMessage: "解密失败，密钥可能已失效。", suggestion: "请先在酷狗客户端播放一次该歌曲后重试。", severity: "error"},
-	ErrTranscodeFailed:   {userMessage: "音频转码失败。", suggestion: "请确认输入文件完整可用，或更换输出格式后重试。", severity: "error"},
-	ErrFFmpegUnavailable: {userMessage: "运行时 ffmpeg 不可用。", suggestion: "请检查 tools/ffmpeg.exe 是否存在且可执行，然后重试。", severity: "fatal"},
-	ErrUnsupportedFormat: {userMessage: "不支持的输入文件格式。", suggestion: "仅支持 .kgg/.kgm/.kgma/.vpr/.ncm。", severity: "warning"},
-	ErrRuntimeMissing:    {userMessage: "运行时依赖缺失。", suggestion: "请补齐缺失文件后重试。", severity: "fatal"},
-	ErrNoFiles:           {userMessage: "未上传任何支持的文件。", suggestion: "请先选择至少一个加密音频文件。", severity: "warning"},
-	ErrTooManyFiles:      {userMessage: "上传文件数量超过限制。", suggestion: "请分批上传。", severity: "warning"},
-	ErrFileTooLarge:      {userMessage: "单文件超过大小限制。", suggestion: "请减小文件大小后重试。", severity: "warning"},
-	ErrOutputRequired:    {userMessage: "输出目录不能为空。", suggestion: "请先选择输出目录。", severity: "warning"},
-	ErrFolderPicker:      {userMessage: "无法打开目录选择器。", suggestion: "请手动输入目录路径。", severity: "error"},
-	ErrDBPicker:          {userMessage: "无法打开数据库选择器。", suggestion: "请手动输入 KGMusicV3.db 路径。", severity: "error"},
-	ErrDBPathInvalid:     {userMessage: "数据库路径无效。", suggestion: "请确认文件存在且文件名为 KGMusicV3.db。", severity: "warning"},
-	ErrCancelled:         {userMessage: "转换已取消。", suggestion: "可重新发起转换任务。", severity: "warning"},
-	ErrScanInvalidPath:   {userMessage: "扫描路径无效。", suggestion: "请确认路径存在且为文件夹。", severity: "warning"},
-	ErrInputPathDenied:   {userMessage: "输入路径不在允许目录中。", suggestion: "仅允许转换用户目录中的文件。", severity: "warning"},
-	ErrForbiddenOrigin:   {userMessage: "请求来源不受信任。", suggestion: "请在本机页面中使用本工具，不要从第三方网页发起请求。", severity: "fatal"},
+	ErrDBNotFound:         {userMessage: "未找到 KGMusicV3.db 数据库文件。", suggestion: "KGG 格式转换需要数据库，请先配置 KGMusicV3.db。", severity: "fatal"},
+	ErrDecryptFailed:      {userMessage: "解密失败，未生成可用音频文件。", suggestion: "请确认输入文件完整可用后重试。", severity: "error"},
+	ErrDecryptKeyExpired:  {userMessage: "解密失败，密钥可能已失效。", suggestion: "请先在酷狗客户端播放一次该歌曲后重试。", severity: "error"},
+	ErrTranscodeFailed:    {userMessage: "音频转码失败。", suggestion: "请确认输入文件完整可用，或更换输出格式后重试。", severity: "error"},
+	ErrFFmpegUnavailable:  {userMessage: "运行时 ffmpeg 不可用。", suggestion: "请检查 tools/ffmpeg.exe 是否存在且可执行，然后重试。", severity: "fatal"},
+	ErrUnsupportedFormat:  {userMessage: "不支持的输入文件格式。", suggestion: "仅支持 .kgg/.kgm/.kgma/.vpr/.ncm。", severity: "warning"},
+	ErrRuntimeMissing:     {userMessage: "运行时依赖缺失。", suggestion: "请补齐缺失文件后重试。", severity: "fatal"},
+	ErrNoFiles:            {userMessage: "未上传任何支持的文件。", suggestion: "请先选择至少一个加密音频文件。", severity: "warning"},
+	ErrTooManyFiles:       {userMessage: "上传文件数量超过限制。", suggestion: "请分批上传。", severity: "warning"},
+	ErrFileTooLarge:       {userMessage: "上传内容超过大小限制。", suggestion: "请检查单文件与单次上传总大小，必要时分批处理或使用文件夹扫描。", severity: "warning"},
+	ErrOutputRequired:     {userMessage: "输出目录不能为空。", suggestion: "请先选择输出目录。", severity: "warning"},
+	ErrFolderPicker:       {userMessage: "无法打开目录选择器。", suggestion: "请手动输入目录路径。", severity: "error"},
+	ErrDBPicker:           {userMessage: "无法打开数据库选择器。", suggestion: "请手动输入 KGMusicV3.db 路径。", severity: "error"},
+	ErrDBPathInvalid:      {userMessage: "数据库路径无效。", suggestion: "请确认文件存在且文件名为 KGMusicV3.db。", severity: "warning"},
+	ErrCancelled:          {userMessage: "转换已取消。", suggestion: "可重新发起转换任务。", severity: "warning"},
+	ErrScanInvalidPath:    {userMessage: "扫描路径无效。", suggestion: "请确认路径存在且为文件夹。", severity: "warning"},
+	ErrInputPathDenied:    {userMessage: "输入路径不在允许目录中。", suggestion: "仅允许转换用户目录中的文件。", severity: "warning"},
+	ErrForbiddenOrigin:    {userMessage: "请求来源不受信任。", suggestion: "请在本机页面中使用本工具，不要从第三方网页发起请求。", severity: "fatal"},
 	ErrBackendUnreachable: {userMessage: "未连接到本地转换服务。", suggestion: "请通过 start.hta 或 start.bat 启动程序，并从 http://localhost:8080 打开页面。", severity: "fatal"},
 	ErrStreamNoComplete:   {userMessage: "本地转换连接中断，任务状态未知。", suggestion: "请检查本机安全软件/代理/进程稳定性后，重试未完成文件。", severity: "error"},
 	ErrStreamDisconnected: {userMessage: "本地服务连接中断，任务状态未知。", suggestion: "请检查本地服务连接（localhost:8080）后，重试未完成文件。", severity: "error"},
@@ -144,6 +144,14 @@ func writeError(w http.ResponseWriter, status int, err error) {
 		Suggestion:  appErr.Suggestion,
 		Severity:    appErr.Severity,
 	})
+}
+
+func requestErrorStatus(err error) int {
+	var appErr *AppError
+	if errors.As(err, &appErr) && appErr.Code == ErrFileTooLarge {
+		return http.StatusRequestEntityTooLarge
+	}
+	return http.StatusBadRequest
 }
 
 func writeMethodNotAllowed(w http.ResponseWriter, allow string) {

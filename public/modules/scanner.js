@@ -172,7 +172,7 @@ export function createScanner(ctx) {
 
     candidates.forEach((file) => {
       if (!file.fullPath || existed.has(file.fullPath)) return;
-      if (pendingCount() + added >= state.maxFileCount) return;
+      if (pendingCount() >= state.maxFileCount) return;
 
       state.pathQueue.push({
         fullPath: file.fullPath,

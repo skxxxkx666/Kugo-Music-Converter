@@ -229,32 +229,50 @@ export function createUploaderController(options) {
 
   function mergeFiles(newFiles) {
     const incoming = Array.from(newFiles || []);
-    if (incoming.length === 0) return;
+    const stats = {
+      candidates: incoming.length,
+      added: 0,
+      unsupported: 0,
+      tooLarge: 0,
+      duplicate: 0,
+      blockedByLimit: 0
+    };
+    if (incoming.length === 0) return stats;
 
     const signatures = new Set(state.selectedFiles.map((file) => `${file.name}|${file.size}|${file.lastModified}`));
 
     for (const file of incoming) {
       const ext = getExt(file.name);
       if (!state.supportedFormats.includes(ext)) {
+        stats.unsupported += 1;
         appendLog("warn", `已跳过不支持的文件：${file.name}`);
         continue;
       }
       if (file.size > state.maxFileSizeMB * 1024 * 1024) {
-        appendLog("warn", `文件过大已跳过：${file.name}`);
+        stats.tooLarge += 1;
+        appendLog(
+          "warn",
+          `文件过大已跳过：${file.name}（${formatBytes(file.size)}，单文件上限 ${state.maxFileSizeMB}MB）`
+        );
         continue;
       }
 
       const sign = `${file.name}|${file.size}|${file.lastModified}`;
-      if (signatures.has(sign)) continue;
+      if (signatures.has(sign)) {
+        stats.duplicate += 1;
+        continue;
+      }
+      if (pendingCount() >= state.maxFileCount) {
+        stats.blockedByLimit += 1;
+        continue;
+      }
 
       state.selectedFiles.push(file);
       signatures.add(sign);
+      stats.added += 1;
     }
 
-    if (pendingCount() > state.maxFileCount) {
-      state.selectedFiles = state.selectedFiles.slice(0, Math.max(0, state.maxFileCount - state.pathQueue.length));
-      appendLog("warn", `已超过文件上限，自动截断为最多 ${state.maxFileCount} 个。`);
-    }
+    return stats;
   }
 
   function clearQueue() {

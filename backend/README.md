@@ -96,7 +96,7 @@ CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o bin/kugo-converter-darwin-arm
 - 启动后访问 `http://localhost:8080`，即可看到拖拽/多选上传界面。
 - 支持输入格式：KGG、KGM、KGMA、VPR、NCM。
 - 支持输出格式：MP3 (VBR 质量可选)、FLAC、WAV。
-- 默认最大 500 个文件，单文件上限 80 MB（可通过配置调整）。
+- 默认最大 500 个文件，单文件上限 1 GiB（可通过配置调整）。浏览器单次上传总计上限为 2028 MiB，超过时可分批处理或改用目录扫描。
 - 支持并发转换 (1~6 线程)、SSE 流式进度、中途取消。
 
 ### 4.1 KGG 密钥加载
@@ -149,7 +149,7 @@ $env:LOG_LEVEL="DEBUG"; ./bin/kugo-converter.exe
 | `ffmpeg_bin` | `tools/ffmpeg.exe` | ffmpeg 可执行文件路径 |
 | `public_dir` | `public` | 前端静态文件目录 |
 | `default_output` | `output` | 默认输出目录 |
-| `max_file_size` | 80 MB | 单文件上传上限 |
+| `max_file_size` | 1 GiB | 单文件上传上限 |
 | `max_files` | 500 | 最大文件数 |
 | `concurrency` | 3 | 默认并发数 |
 | `parse_form_memory` | 32 MB | 表单解析内存限制 |

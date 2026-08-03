@@ -30,7 +30,11 @@ type convertRequest struct {
 	Cleanup      func()
 }
 
-const maxConvertRequestBody int64 = 2 << 30 // 2 GiB hard cap
+const (
+	maxConvertRequestBody           int64 = 2 << 30  // 2 GiB hard cap
+	convertRequestOverheadAllowance int64 = 20 << 20 // multipart fields and headers
+	maxUploadTotalBytes                   = maxConvertRequestBody - convertRequestOverheadAllowance
+)
 
 func createTempFile(prefix, suffix string) (string, error) {
 	f, err := os.CreateTemp("", prefix+"*"+suffix)
@@ -194,14 +198,22 @@ func copyUploadToTemp(file multipart.File, hdr *multipart.FileHeader) (service.B
 }
 
 func (h *ConvertHandler) parseConvertRequest(w http.ResponseWriter, r *http.Request) (*convertRequest, error) {
-	maxBody := int64(h.cfg.MaxFiles)*h.cfg.MaxFileSize + (20 << 20)
+	maxBody := int64(h.cfg.MaxFiles)*h.cfg.MaxFileSize + convertRequestOverheadAllowance
 	if maxBody <= 0 || maxBody > maxConvertRequestBody {
 		maxBody = maxConvertRequestBody
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
 
 	if err := r.ParseMultipartForm(h.cfg.ParseFormMemory); err != nil {
-		return nil, NewAppError(ErrFileTooLarge, "表单解析失败或文件超过限制", err)
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			return nil, NewAppError(
+				ErrFileTooLarge,
+				fmt.Sprintf("单次上传总大小超过限制（最大 %d MiB）", maxUploadTotalBytes/(1024*1024)),
+				err,
+			)
+		}
+		return nil, NewAppError("ERR_UNKNOWN", "上传表单解析失败", err)
 	}
 
 	items := make([]service.BatchItem, 0, h.cfg.MaxFiles)
@@ -221,7 +233,7 @@ func (h *ConvertHandler) parseConvertRequest(w http.ResponseWriter, r *http.Requ
 		for _, hdr := range group {
 			if hdr.Size > h.cfg.MaxFileSize {
 				cleanup()
-				return nil, NewAppError(ErrFileTooLarge, fmt.Sprintf("文件 %s 超过大小限制", hdr.Filename), nil)
+				return nil, NewAppError(ErrFileTooLarge, fmt.Sprintf("文件 %s 超过大小限制（上限 %d MiB）", hdr.Filename, h.cfg.MaxFileSize/(1024*1024)), nil)
 			}
 			f, err := hdr.Open()
 			if err != nil {
@@ -257,7 +269,7 @@ func (h *ConvertHandler) parseConvertRequest(w http.ResponseWriter, r *http.Requ
 	for _, item := range items {
 		if item.Size > h.cfg.MaxFileSize {
 			cleanup()
-			return nil, NewAppError(ErrFileTooLarge, fmt.Sprintf("文件 %s 超过大小限制", item.Name), nil)
+			return nil, NewAppError(ErrFileTooLarge, fmt.Sprintf("文件 %s 超过大小限制（上限 %d MiB）", item.Name, h.cfg.MaxFileSize/(1024*1024)), nil)
 		}
 	}
 
@@ -540,7 +552,7 @@ func (h *ConvertHandler) HandleConvert(w http.ResponseWriter, r *http.Request) {
 
 	req, err := h.parseConvertRequest(w, r)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeError(w, requestErrorStatus(err), err)
 		return
 	}
 	defer req.Cleanup()

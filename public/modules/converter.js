@@ -1,4 +1,4 @@
-import { toAbsoluteUrl } from "./utils.js";
+import { getUploadTotalBytes, toAbsoluteUrl } from "./utils.js";
 
 export function createConverterController(options) {
   const {
@@ -720,6 +720,12 @@ export function createConverterController(options) {
     }
     if (items.length > state.maxFileCount) {
       appendLog("warn", `文件数量超过限制（最多 ${state.maxFileCount} 个）。`);
+      return;
+    }
+    const uploadTotalBytes = getUploadTotalBytes(getSelectedFiles());
+    if (uploadTotalBytes > state.maxUploadTotalMB * 1024 * 1024) {
+      appendLog("warn", `单次上传文件总大小超过 ${state.maxUploadTotalMB}MB，请分批处理或使用文件夹扫描。`);
+      toastInfo("上传文件总大小超过限制");
       return;
     }
     if (!outputDir) {

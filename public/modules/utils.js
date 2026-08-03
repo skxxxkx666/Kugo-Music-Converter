@@ -19,6 +19,13 @@ export function formatBytes(bytes) {
   return `${value} B`;
 }
 
+export function getUploadTotalBytes(files) {
+  return Array.from(files || []).reduce((total, file) => {
+    const size = Number(file?.size);
+    return total + (Number.isFinite(size) && size > 0 ? size : 0);
+  }, 0);
+}
+
 export function formatDuration(ms) {
   const sec = Math.max(0, Math.round((Number(ms) || 0) / 1000));
   const m = Math.floor(sec / 60);
