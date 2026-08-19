@@ -18,6 +18,9 @@ backend/build/windows/*
 !backend/build/windows/icon.ico
 !backend/build/windows/info.json
 !backend/build/windows/wails.exe.manifest
+!backend/build/windows/installer/
+backend/build/windows/installer/*
+!backend/build/windows/installer/project.nsi
 backend/frontend/wailsjs/
 backend/internal/runtimebundle/payload/
 backend/internal/webview2bundle/payload/
