@@ -16,7 +16,9 @@ import (
 
 	common "unlock-music.dev/cli/algo/common"
 	"unlock-music.dev/cli/algo/kgm"
+	"unlock-music.dev/cli/algo/kwm"
 	"unlock-music.dev/cli/algo/ncm"
+	"unlock-music.dev/cli/algo/qmc"
 )
 
 type DecryptService struct{ cfg *config.Config }
@@ -140,6 +142,10 @@ func (s *DecryptService) DecryptFileByExt(inPath string) (io.ReadCloser, error) 
 		return s.decryptKggPureGo(inPath)
 	case ".ncm":
 		return s.decryptNcmPureGo(inPath)
+	case ".kwm":
+		return s.decryptKwmPureGo(inPath)
+	case ".qmc0", ".qmc2", ".qmc3", ".qmc4", ".qmc6", ".qmc8", ".qmcflac", ".qmcogg", ".tkm":
+		return s.decryptQmcPureGo(inPath)
 	default:
 		return nil, fmt.Errorf("%w: %s", ErrUnsupportedInput, ext)
 	}
@@ -186,6 +192,48 @@ func (s *DecryptService) decryptNcmPureGo(inPath string) (io.ReadCloser, error) 
 		if err := dec.Validate(); err != nil {
 			_ = in.Close()
 			return nil, fmt.Errorf("%w: invalid NCM: %v", ErrDecryptProcess, err)
+		}
+		return newStackedReadCloser(dec, in), nil
+	})
+}
+
+func (s *DecryptService) decryptKwmPureGo(inPath string) (io.ReadCloser, error) {
+	return buildDecryptReader("kwm", func() (io.ReadCloser, error) {
+		in, err := os.Open(inPath)
+		if err != nil {
+			return nil, err
+		}
+
+		dec := kwm.NewDecoder(&common.DecoderParams{
+			Reader:    in,
+			Extension: ".kwm",
+			FilePath:  inPath,
+			Logger:    noopZapLogger,
+		})
+		if err := dec.Validate(); err != nil {
+			_ = in.Close()
+			return nil, fmt.Errorf("%w: invalid KWM: %v", ErrDecryptProcess, err)
+		}
+		return newStackedReadCloser(dec, in), nil
+	})
+}
+
+func (s *DecryptService) decryptQmcPureGo(inPath string) (io.ReadCloser, error) {
+	return buildDecryptReader("qmc", func() (io.ReadCloser, error) {
+		in, err := os.Open(inPath)
+		if err != nil {
+			return nil, err
+		}
+
+		dec := qmc.NewDecoder(&common.DecoderParams{
+			Reader:    in,
+			Extension: strings.ToLower(filepath.Ext(inPath)),
+			FilePath:  inPath,
+			Logger:    noopZapLogger,
+		})
+		if err := dec.Validate(); err != nil {
+			_ = in.Close()
+			return nil, fmt.Errorf("%w: invalid QMC: %v", ErrDecryptProcess, err)
 		}
 		return newStackedReadCloser(dec, in), nil
 	})

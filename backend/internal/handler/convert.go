@@ -18,7 +18,10 @@ import (
 )
 
 var (
-	supportedInputExts = []string{".kgg", ".kgm", ".kgma", ".vpr", ".ncm"}
+	supportedInputExts = []string{
+		".kgg", ".kgm", ".kgma", ".vpr", ".ncm", ".kwm",
+		".qmc0", ".qmc2", ".qmc3", ".qmc4", ".qmc6", ".qmc8", ".qmcflac", ".qmcogg", ".tkm",
+	}
 )
 
 const (

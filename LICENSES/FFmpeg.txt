@@ -1,0 +1,19 @@
+FFmpeg notice
+=============
+
+The FFmpeg executable bundled with Kugo Music Converter was built with
+`--enable-gpl --enable-version3` and is distributed under the GNU General
+Public License version 3 or later.
+
+Copyright (c) 2000-2025 the FFmpeg developers.
+
+The complete GNU GPL version 3 license text is distributed in the repository
+root as `COPYING` and is available at:
+
+https://www.gnu.org/licenses/gpl-3.0.txt
+
+FFmpeg source and build provenance for this exact binary are recorded in
+`FFMPEG-SOURCE.md`.
+
+FFmpeg is a trademark of Fabrice Bellard, originator of the FFmpeg project.
+This project is not affiliated with or endorsed by the FFmpeg project.

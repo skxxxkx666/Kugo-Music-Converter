@@ -1,12 +1,63 @@
 # Backend - Go 后端
 
+## v0.6.0 桌面端架构
+
+v0.6.0 使用 Wails v2 将 Go 后端与前端直接打包为 Windows 桌面 EXE。桌面应用支持文件与文件夹拖放、队列管理、设置持久化、批量转换、进度与 ETA、任务取消、失败恢复、试听与定位、历史、目录扫描、诊断、显式自动更新和运行时缓存清理。Windows 原生集成包含单实例、任务栏进度、完成通知和关窗确认。
+
+当前稳定版本为 v0.6.0。标准版和内置 WebView2 版分别提供便携 EXE 与按用户安装器，共四个未签名资产并分别发布 SHA-256；SignPath 延后到 v0.6.1 评估。
+
+```powershell
+cd backend
+
+# 开发构建（不嵌入 FFmpeg）
+wails build -trimpath -o Kugo-Music-Converter-v0.6.0-dev.exe
+
+# 正式候选构建（从仓库根目录执行）
+cd ..
+.\build-release.ps1
+```
+
+两个正式构建首次启动时都会将 FFmpeg 解压到 `%LOCALAPPDATA%\Kugo Music Converter\runtime\<校验值>`。内置 WebView2 版还会把 Fixed Runtime 解压到 `%LOCALAPPDATA%\Kugo Music Converter\webview2\<版本>-<校验值>` 并设置 AppContainer 读/执行权限。后续启动会校验并复用缓存；生成的载荷、Wails 绑定和构建产物不会提交到 Git。
+
+### 功能等价说明
+
+| v0.5.x 能力 | v0.6.0 桌面实现 |
+|---|---|
+| 浏览器拖放、目录递归解析 | Wails 原生文件/目录拖放与目录选择 |
+| 输出格式、音质、并发、输出目录、KGG 数据库 | 桌面设置区；偏好保存在 WebView 本机存储，数据库支持自动检测、手选和重新检测 |
+| SSE 总进度、单文件结果、ETA、取消 | Wails 事件；显示总进度、当前文件/阶段、ETA，取消前使用原生确认窗口 |
+| 成功试听、输出定位、失败详情与重试 | 队列结果行和任务结果操作区 |
+| 扫描文件名、复制、CSV | 折叠式高级工具，支持多目录、递归和自定义扩展名 |
+| 转换日志与历史 | 页面内诊断记录、LOG 导出、最近 50 次历史的恢复/删除/清空 |
+| GitHub 更新提示 | 后端检查、更新摘要、忽略版本、官方安装器下载、SHA-256 校验和 Releases 回退 |
+| 深色模式 | 跟随 Windows 系统主题，顶栏可手动切换并记忆 |
+
+这里的“产品功能等价”不要求保留 `localhost`、HTTP 上传、SSE 或浏览器标签页；这些传输和启动方式由进程内 Wails 绑定替代。旧链路清理是后续独立阶段，指删除 `start.hta`、`start.bat`、`public/` 和 `cmd/server`；发布脚本已经切换到桌面单 EXE，本阶段仍不删除旧回退链路。
+
 ## 1. 项目结构
 
 ```
 backend/
+├── main.go                         # v0.6.0 Wails 桌面入口、单实例启动
+├── app.go                          # 原生绑定、启动状态与关窗拦截
+├── app_conversion.go               # 转换任务、取消与 Wails 事件
+├── app_features.go                 # 扫描、导出、试听、更新等桌面方法
+├── app_update.go                   # 官方 Release 自动更新下载、校验与安装器启动
+├── app_cache.go                    # 应用运行时缓存统计与安全清理
+├── app_music_discovery.go          # 查找本机音乐的分组、去重与受限扫描
+├── app_music_discovery_windows.go  # Windows 音乐软件下载目录与四客户端配置检测
+├── app_windows_integration.go      # Windows 原生集成（任务栏进度、Toast 通知、单实例）
+├── app_integration_other.go        # 非 Windows 平台的空实现
+├── frontend/
+│   └── src/                        # v0.6.0 桌面界面
+│       ├── index.html              # 语义结构与内联 SVG 图标精灵
+│       ├── main.css                # 设计令牌、双主题、组件与动效
+│       ├── main.js                 # 队列/设置/转换/历史/扫描/快捷键交互
+│       ├── fonts/                  # 内嵌 Inter 可变字体
+│       └── assets/                 # 应用 Logo 与酷我音乐品牌图标 PNG
 ├── cmd/
 │   └── server/
-│       └── main.go                  # 程序入口点
+│       └── main.go                  # v0.5.x HTTP 服务入口
 ├── internal/
 │   ├── algo/
 │   │   └── kgg/                     # KGG 纯 Go 解密实现
@@ -30,12 +81,14 @@ backend/
 │   │   ├── scanner.go               # POST /api/scan-folders 目录扫描
 │   │   ├── preview.go               # GET /api/preview-file 试听服务
 │   │   ├── health.go                # GET /api/health 健康检查
+│   │   ├── local_convert.go         # v0.6.0 本地路径转换适配层
 │   │   ├── error.go                 # 统一错误码定义
 │   │   └── middleware.go            # 请求日志中间件
 │   ├── logger/
 │   │   └── logger.go                # 分级日志 (DEBUG/INFO/WARN/ERROR)
+│   ├── runtimebundle/               # FFmpeg 压缩载荷与 AppData 缓存
 │   ├── service/
-│   │   ├── decrypt.go               # 解密服务 (KGM/KGMA/VPR/KGG/NCM)
+│   │   ├── decrypt.go               # 解密服务 (KGG/KGM/KGMA/VPR/NCM/KWM/QMC)
 │   │   ├── transcode.go             # ffmpeg 转码 (MP3/FLAC/WAV)
 │   │   ├── batch.go                 # 并发批量转换引擎
 │   │   ├── dbfinder.go              # KGMusicV3.db 自动检测
@@ -50,32 +103,95 @@ backend/
 └── config.example.yaml              # 示例配置文件
 ```
 
-## 2. 构建
+## 2. v0.6.0 桌面开发与验证
 
-```bash
+### 2.1 环境要求
+
+- Windows 10 / 11 x64；
+- Go 1.26；
+- Wails CLI v2；
+- NSIS 3；
+- Microsoft Edge WebView2 Runtime；
+- 正式构建需要联网获取已固定哈希的 FFmpeg 与 WebView2 载荷，已有校验通过的本机载荷会直接复用。
+
+### 2.2 开发构建
+
+```powershell
 cd backend
-go mod tidy
-
-# Windows 64 位 (PowerShell)
-$env:CGO_ENABLED="0"; $env:GOOS="windows"; $env:GOARCH="amd64"; go build -o bin/kugo-converter.exe ./cmd/server
-
-# Windows 64 位 (Linux shell 交叉编译)
-CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o bin/kugo-converter.exe ./cmd/server
-
-# Linux amd64
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/kugo-converter-linux-amd64 ./cmd/server
-
-# Linux arm64
-CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/kugo-converter-linux-arm64 ./cmd/server
-
-# macOS Intel
-CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o bin/kugo-converter-darwin-amd64 ./cmd/server
-
-# macOS Apple Silicon
-CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o bin/kugo-converter-darwin-arm64 ./cmd/server
+wails build -trimpath -o Kugo-Music-Converter-v0.6.0-dev.exe
 ```
 
-## 3. 运行
+不带 `runtimebundle` 标签的构建不会嵌入 FFmpeg，应用会明确显示“开发构建未嵌入 FFmpeg”。
+
+### 2.3 正式双版本构建
+
+```powershell
+cd ..
+.\build-release.ps1
+```
+
+输出位于 `dist/release/`：
+
+- `Kugo-Music-Converter-v0.6.0-windows-amd64.exe`：标准版，使用系统 WebView2（推荐）；
+- `Kugo-Music-Converter-v0.6.0-windows-amd64-webview2.exe`：内置 Fixed Runtime 版，体积较大。
+- `Kugo-Music-Converter-v0.6.0-windows-amd64-setup.exe`：标准版按用户安装器（推荐）；
+- `Kugo-Music-Converter-v0.6.0-windows-amd64-webview2-setup.exe`：内置 Fixed Runtime 按用户安装器。
+
+发布脚本强制为两个版本嵌入 FFmpeg，并只为第二个版本启用 `webview2bundle`。脚本验证 PE 元数据、两版体积差、未签名状态、SHA-256 和无界面运行时自检。安装器默认写入 `%LOCALAPPDATA%\Programs\Kugo Music Converter`，不要求管理员权限。`test-clean-install.ps1` 在干净测试机执行安装、自检、卸载和无残留门禁。v0.6.0 不经过 SignPath；`verify-release.ps1 -RequireSignature` 保留给 v0.6.1。
+
+### 2.4 测试
+
+```powershell
+cd backend
+node --check frontend/src/main.js
+go test ./...
+go test unlock-music.dev/cli/algo/qmc
+go vet ./...
+
+# 真实样本（按实际路径传参，缺失格式会明确列出）
+cd ..
+.\test-sample-coverage.ps1 -SampleDirectory C:\path\to\music
+```
+
+### 2.5 桌面方法
+
+| 类别 | 方法 |
+|---|---|
+| 启动状态 | `GetStartupState` |
+| 文件与目录 | `SelectAudioFiles`、`SelectOutputDirectory`、`SelectScanDirectory`、`ResolveDroppedPaths` |
+| KGG 数据库 | `SelectDatabaseFile`、`RestoreDatabaseFile`、`RedetectDatabase` |
+| 转换 | `StartConversion`、`CancelConversion`、`ConfirmConversionCancellation` |
+| 输出结果 | `OpenOutputDirectory`、`OpenOutputFile`、`GetPreviewURL` |
+| 高级扫描 | `ScanAudioDirectory`、`ScanDirectories` |
+| 本机音乐发现 | `FindLocalMusic` |
+| 导出和确认 | `SaveTextFile`、`ConfirmHistoryAction` |
+| 更新 | `CheckForUpdates`、`DownloadAndInstallUpdate`、`OpenReleasePage` |
+| 运行时缓存 | `GetRuntimeCacheInfo`、`ClearRuntimeCache` |
+
+### 2.6 桌面事件
+
+| 事件 | 负载 |
+|---|---|
+| `conversion:progress` | 当前文件、阶段、总体百分比和字节进度 |
+| `conversion:file-done` | 单文件状态、输出路径或结构化错误 |
+| `conversion:complete` | 成功数、失败数、耗时、输出目录和全部结果 |
+| `conversion:error` | 任务级错误代码、用户提示、建议和详情 |
+
+### 2.7 运行时安全边界
+
+- 转换不监听 TCP 端口；
+- 文件、目录和数据库通过原生对话框或受控拖放选择；
+- 拖放、扫描和导出拒绝网络共享路径；
+- 文本导出只允许 CSV、TXT、LOG，最大 8 MiB；
+- 试听只允许本次进程注册的结果文件；
+- GitHub 跳转只允许本项目 Releases 页面；
+- 扫描超时 30 秒，转换队列上限 500，高级扫描上限 50,000。
+
+## 3. v0.5.x 旧 HTTP 服务（迁移期参考）
+
+以下内容描述 `cmd/server` 和 `../public/`。它们不属于 v0.6.0 正式桌面运行链路，当前仅用于对照、回归和回退。
+
+### 3.1 运行
 
 ```bash
 # 使用默认配置
@@ -91,15 +207,15 @@ CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o bin/kugo-converter-darwin-arm
 ./bin/kugo-converter.exe --help
 ```
 
-## 4. 使用说明
+### 3.2 使用说明
 
 - 启动后访问 `http://localhost:8080`，即可看到拖拽/多选上传界面。
-- 支持输入格式：KGG、KGM、KGMA、VPR、NCM。
+- 支持输入格式：KGG、KGM、KGMA、VPR、NCM、KWM，以及 QMC0/QMC2/QMC3/QMC4/QMC6/QMC8/QMCFLAC/QMCOGG/TKM。
 - 支持输出格式：MP3 (VBR 质量可选)、FLAC、WAV。
 - 默认最大 500 个文件，单文件上限 1 GiB（可通过配置调整）。浏览器单次上传总计上限为 2028 MiB，超过时可分批处理或改用目录扫描。
 - 支持并发转换 (1~6 线程)、SSE 流式进度、中途取消。
 
-### 4.1 KGG 密钥加载
+#### 3.2.1 KGG 密钥加载
 
 KGG (酷狗 Hi-Res) 文件需要 KGMusicV3.db 中的密钥才能解密。
 
@@ -113,7 +229,7 @@ KGG (酷狗 Hi-Res) 文件需要 KGMusicV3.db 中的密钥才能解密。
 
 密钥加载后立刻生效，无需重启。如果新下载的歌曲解密失败，通常是密钥映射未包含最新条目，请重新加载最新的 KGMusicV3.db。
 
-## 5. API
+### 3.3 HTTP API
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
@@ -131,7 +247,7 @@ KGG (酷狗 Hi-Res) 文件需要 KGMusicV3.db 中的密钥才能解密。
 | GET | `/api/health` | 健康检查与版本信息 |
 | POST | `/api/open-folder` | 用资源管理器打开指定目录 |
 
-## 6. 日志
+### 3.4 服务日志
 
 - 格式：`YYYY-MM-DD HH:mm:ss [LEVEL] message`
 - 级别：DEBUG / INFO / WARN / ERROR（默认 INFO）
@@ -141,7 +257,7 @@ KGG (酷狗 Hi-Res) 文件需要 KGMusicV3.db 中的密钥才能解密。
 $env:LOG_LEVEL="DEBUG"; ./bin/kugo-converter.exe
 ```
 
-## 7. 配置项
+### 3.5 旧服务配置项
 
 | 配置键 | 默认值 | 说明 |
 |--------|--------|------|
@@ -156,7 +272,7 @@ $env:LOG_LEVEL="DEBUG"; ./bin/kugo-converter.exe
 
 支持 YAML 配置文件、环境变量 (`KGG_ADDR`, `KGG_FFMPEG_BIN` 等) 和 CLI 参数三种方式，优先级：CLI > 环境变量 > YAML > 默认值。
 
-## 8. Tailwind 重新编译（离线，可选）
+### 3.6 旧浏览器前端 Tailwind 重新编译（离线，可选）
 
 前端样式已预编译为 `public/vendor/tailwind.min.css`，**正常运行无需 Node 环境**。
 仅当修改了 `public/**` 的类名需要重建样式时，按以下步骤操作：
@@ -170,7 +286,7 @@ npx tailwindcss -c tailwind.config.js -i public/src/input.css -o public/vendor/t
 已改为**可选加载**：未安装时自动跳过，重编译不会因缺插件而失败（缺插件时
 仅少量表单/排版样式不会生成，建议尽量按上面命令一并安装）。
 
-## 9. 解密层说明（v0.5.0）
+## 4. 解密层说明（v0.5.0 起沿用）
 
 `internal/algo/kgg` 为自研实现，已与 `unlock-music.dev/cli` 的标准实现逐行
 对照并以真实文件逐字节回归：
@@ -185,4 +301,13 @@ npx tailwindcss -c tailwind.config.js -i public/src/input.css -o public/vendor/t
 ```powershell
 $env:KGG_DB="...\KGMusicV3.db"; $env:KGG_FILE="...\song.kgg"
 go test ./internal/algo/kgg/ -run "TestOracleRealFileRegression|TestLoadKGDatabaseKeyMap" -v
+```
+
+桌面本地转换核心的真实文件测试同样由环境变量门控，默认 Copy；设置 `KUGO_TEST_OUTPUT_FORMAT=wav` 可强制覆盖 FFmpeg 转码路径：
+
+```powershell
+$env:KUGO_TEST_INPUT="...\sample.kgma"
+$env:KUGO_TEST_FFMPEG="...\ffmpeg.exe"
+$env:KUGO_TEST_OUTPUT_FORMAT="wav"
+go test ./internal/handler -run '^TestConvertLocalPathsRealFile$' -count=1 -v
 ```

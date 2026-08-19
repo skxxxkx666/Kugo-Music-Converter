@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"kugo-music-converter/internal/service"
+	"kugo-music-converter/internal/utils"
 )
 
 const (
@@ -98,9 +99,10 @@ func probeFFmpegBinary(ffmpegPath string) (bool, string) {
 	ctx, cancel := context.WithTimeout(context.Background(), ffmpegProbeTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, path, "-version")
+	utils.ConfigureBackgroundCommand(cmd)
 	output, runErr := cmd.CombinedOutput()
 	if ctx.Err() == context.DeadlineExceeded {
-		return false, "ffmpeg 探测超时（2s）"
+		return false, "FFmpeg 探测超时（8 秒）"
 	}
 	if runErr != nil {
 		msg := compactMessage(string(output), 400)

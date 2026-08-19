@@ -10,6 +10,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"kugo-music-converter/internal/utils"
 )
 
 var validMP3Qualities = map[int]struct{}{0: {}, 2: {}, 5: {}, 7: {}}
@@ -206,6 +208,7 @@ func buildFFmpegArgsForFile(inputPath, outputPath, outputFormat string, mp3Quali
 
 func runFFmpeg(ctx context.Context, ffmpegBin string, args []string, input io.Reader) (string, error) {
 	cmd := exec.CommandContext(ctx, ffmpegBin, args...)
+	utils.ConfigureBackgroundCommand(cmd)
 	cmd.Stdin = input
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr

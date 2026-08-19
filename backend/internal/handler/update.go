@@ -25,16 +25,23 @@ var githubMirrors = []string{
 }
 
 type updateCacheEntry struct {
-	data      *releaseInfo
+	data      *ReleaseInfo
 	fetchedAt time.Time
 }
 
-type releaseInfo struct {
-	TagName     string `json:"tagName"`
-	HtmlURL     string `json:"htmlUrl"`
-	Body        string `json:"body"`
-	PublishedAt string `json:"publishedAt"`
-	Prerelease  bool   `json:"prerelease"`
+type ReleaseInfo struct {
+	TagName     string         `json:"tagName"`
+	HtmlURL     string         `json:"htmlUrl"`
+	Body        string         `json:"body"`
+	PublishedAt string         `json:"publishedAt"`
+	Prerelease  bool           `json:"prerelease"`
+	Assets      []ReleaseAsset `json:"assets"`
+}
+
+type ReleaseAsset struct {
+	Name        string `json:"name"`
+	DownloadURL string `json:"downloadUrl"`
+	Size        int64  `json:"size"`
 }
 
 type ghReleaseResponse struct {
@@ -43,6 +50,11 @@ type ghReleaseResponse struct {
 	Body        string `json:"body"`
 	PublishedAt string `json:"published_at"`
 	Prerelease  bool   `json:"prerelease"`
+	Assets      []struct {
+		Name               string `json:"name"`
+		BrowserDownloadURL string `json:"browser_download_url"`
+		Size               int64  `json:"size"`
+	} `json:"assets"`
 }
 
 var (
@@ -60,40 +72,49 @@ func (h *ConvertHandler) HandleCheckUpdate(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Check cache first
-	updateCacheMu.RLock()
-	cached := updateCache
-	updateCacheMu.RUnlock()
-
-	if cached != nil && cached.data != nil && time.Since(cached.fetchedAt) < updateCacheTTL {
-		writeJSON(w, http.StatusOK, cached.data)
-		return
-	}
-
-	// Fetch from GitHub (try mirrors in order)
-	release, err := fetchLatestRelease(r.Context())
+	release, err := CheckLatestRelease(r.Context())
 	if err != nil {
-		logger.Warnf("更新检测失败: %v", err)
-		// If we have stale cache, return it rather than an error
-		if cached != nil && cached.data != nil {
-			writeJSON(w, http.StatusOK, cached.data)
-			return
-		}
 		writeJSON(w, http.StatusBadGateway, map[string]string{
 			"error": "无法连接 GitHub，请检查网络连接或代理设置",
 		})
 		return
 	}
 
-	// Update cache
+	writeJSON(w, http.StatusOK, release)
+}
+
+// CheckLatestRelease returns the latest GitHub release while sharing the
+// existing cache and mirror fallback strategy with the legacy HTTP API.
+func CheckLatestRelease(parentCtx context.Context) (*ReleaseInfo, error) {
+	if parentCtx == nil {
+		parentCtx = context.Background()
+	}
+
+	updateCacheMu.RLock()
+	cached := updateCache
+	updateCacheMu.RUnlock()
+
+	if cached != nil && cached.data != nil && time.Since(cached.fetchedAt) < updateCacheTTL {
+		return cached.data, nil
+	}
+
+	release, err := fetchLatestRelease(parentCtx)
+	if err != nil {
+		logger.Warnf("更新检测失败: %v", err)
+		if cached != nil && cached.data != nil {
+			return cached.data, nil
+		}
+		return nil, err
+	}
+
 	updateCacheMu.Lock()
 	updateCache = &updateCacheEntry{data: release, fetchedAt: time.Now()}
 	updateCacheMu.Unlock()
 
-	writeJSON(w, http.StatusOK, release)
+	return release, nil
 }
 
-func fetchLatestRelease(parentCtx context.Context) (*releaseInfo, error) {
+func fetchLatestRelease(parentCtx context.Context) (*ReleaseInfo, error) {
 	var lastErr error
 
 	for _, mirror := range githubMirrors {
@@ -111,7 +132,7 @@ func fetchLatestRelease(parentCtx context.Context) (*releaseInfo, error) {
 	return nil, lastErr
 }
 
-func fetchFromURL(ctx context.Context, url string) (*releaseInfo, error) {
+func fetchFromURL(ctx context.Context, url string) (*ReleaseInfo, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -136,12 +157,22 @@ func fetchFromURL(ctx context.Context, url string) (*releaseInfo, error) {
 		return nil, err
 	}
 
-	return &releaseInfo{
+	assets := make([]ReleaseAsset, 0, len(ghRelease.Assets))
+	for _, asset := range ghRelease.Assets {
+		assets = append(assets, ReleaseAsset{
+			Name:        asset.Name,
+			DownloadURL: asset.BrowserDownloadURL,
+			Size:        asset.Size,
+		})
+	}
+
+	return &ReleaseInfo{
 		TagName:     ghRelease.TagName,
 		HtmlURL:     ghRelease.HtmlURL,
 		Body:        ghRelease.Body,
 		PublishedAt: ghRelease.PublishedAt,
 		Prerelease:  ghRelease.Prerelease,
+		Assets:      assets,
 	}, nil
 }
 

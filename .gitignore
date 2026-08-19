@@ -11,6 +11,16 @@ backend/bin/output/
 # Build artifacts
 backend/server
 backend/bin/
+backend/build/*
+!backend/build/appicon.png
+!backend/build/windows/
+backend/build/windows/*
+!backend/build/windows/icon.ico
+!backend/build/windows/info.json
+!backend/build/windows/wails.exe.manifest
+backend/frontend/wailsjs/
+backend/internal/runtimebundle/payload/
+backend/internal/webview2bundle/payload/
 
 # Tools (distribute via Release)
 tools/
@@ -18,6 +28,7 @@ tools/
 # IDE / Editor
 .vscode/
 .idea/
+.zcode/
 *.swp
 *.swo
 *~
@@ -30,12 +41,20 @@ Desktop.ini
 # Go
 backend/vendor/
 
-# Internal development documents (archived in docs/)
-docs/
+# Public release documentation
+docs/*
+!docs/release-notes.md
+!docs/releases/
+!docs/releases/**
+
+# Local-only product, migration, planning, and audit documents
+PRODUCT.md
+V0.6.0-DESKTOP-MIGRATION.md
 
 # Release archives
 *.zip
 *.tar.gz
+dist/
 
 # Logs
 *.log
@@ -45,6 +64,9 @@ docs/
 
 # Test prototypes
 TEST.html
+
+# Local cloud test environment documentation
+/ALEX-Windows-开发环境使用手册.md
 
 # Conversion logs
 转换日志*.txt

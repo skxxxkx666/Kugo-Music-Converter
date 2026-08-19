@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kugo Music Converter</title>
+    <script>
+      // 首帧前恢复用户手动选择的主题，避免明暗闪烁
+      try {
+        var savedTheme = localStorage.getItem("kugo-desktop-theme");
+        if (savedTheme === "light" || savedTheme === "dark") {
+          document.documentElement.dataset.theme = savedTheme;
+        }
+      } catch (e) { /* 存储不可用时跟随系统 */ }
+    </script>
+    <link rel="stylesheet" href="/main.css" />
+  </head>
+  <body>
+    <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><symbol id="i-music-4" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><path d="m9 9 12-2"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol><symbol id="i-upload-cloud" viewBox="0 0 24 24"><path d="M12 13v8"/><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="m8 17 4-4 4 4"/></symbol><symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></symbol><symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol><symbol id="i-folder-open" viewBox="0 0 24 24"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></symbol><symbol id="i-folder-plus" viewBox="0 0 24 24"><path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol><symbol id="i-folder-output" viewBox="0 0 24 24"><path d="M2 7.5V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-1.5"/><path d="M2 13h10"/><path d="m5 10-3 3 3 3"/></symbol><symbol id="i-database" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></symbol><symbol id="i-refresh-cw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol><symbol id="i-play" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></symbol><symbol id="i-square" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol><symbol id="i-trash-2" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></symbol><symbol id="i-rotate-cw" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></symbol><symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></symbol><symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol><symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></symbol><symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol><symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></symbol><symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol><symbol id="i-circle-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol><symbol id="i-circle-x" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></symbol><symbol id="i-triangle-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol><symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol><symbol id="i-file-audio" viewBox="0 0 24 24"><path d="M17.5 22h.5a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v3"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M2 19a2 2 0 1 1 4 0v1a2 2 0 1 1-4 0v-4a6 6 0 0 1 12 0v4a2 2 0 1 1-4 0v-1a2 2 0 1 1 4 0"/></symbol><symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol><symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol><symbol id="i-disc" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="2"/></symbol><symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></symbol><symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol><symbol id="i-external-link" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol><symbol id="i-settings-2" viewBox="0 0 24 24"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></symbol><symbol id="i-bell-ring" viewBox="0 0 24 24"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M22 8c0-2.3-.8-4.3-2-6"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/><path d="M4 2C2.8 3.7 2 5.7 2 8"/></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol><symbol id="i-foldersearch" viewBox="0 0 24 24"><path d="M10.7 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v4.1"/><path d="m21 21-1.9-1.9"/><circle cx="17" cy="17" r="3"/></symbol><symbol id="i-github" viewBox="0 0 24 24"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></symbol><symbol id="i-brand-kugou" viewBox="0 -.05676944 1024 1024.11254213"><path d="m157.515 0h708.97a157.415 157.415 0 0 1 157.515 156.411v711.178a157.415 157.415 0 0 1 -157.515 156.41h-708.97a157.415 157.415 0 0 1 -157.515-156.409v-711.18a157.415 157.415 0 0 1 157.515-156.41z" fill="#008ad4"/><g fill="#fff"><path d="m979.325 410.303a478.067 478.067 0 0 0 -489.512-375.969 478.77 478.77 0 0 0 -399.46 702.946 482.886 482.886 0 0 0 154.001 170.667 478.268 478.268 0 0 0 734.971-497.644zm-67.262 226.183a419.137 419.137 0 0 1 -403.376 294.25 419.037 419.037 0 0 1 -396.75-294.15 418.234 418.234 0 0 1 157.214-465.92 415.724 415.724 0 0 1 220.863-76.9 418.936 418.936 0 0 1 421.647 542.72z"/><path d="m327.981 284.813c-15.56 151.39-30.118 302.883-45.779 454.274h111.838c15.16-151.693 32.427-303.084 47.084-454.776-37.647 1.003-75.394.702-113.142.502z"/><path d="m573.139 315.432c-39.454 39.053-81.217 76.097-119.467 116.254-21.183 23.19-38.65 54.212-33.631 86.538 1.606 22.89 14.356 42.567 27.106 60.236 37.546 52.906 72.784 107.42 110.431 160.627h143.762c-46.783-59.03-91.86-119.165-137.136-179.2-11.144-15.46-25.098-31.322-26.403-51.2-1.908-17.368 10.039-31.523 21.383-43.269 60.838-60.235 122.077-120.47 182.614-180.706-45.378.602-90.353 0-136.032 0-11.043 10.04-21.684 20.079-32.627 30.62z"/></g></symbol><symbol id="i-brand-netease" viewBox="0 0 24 24" fill="#D43C33"><path d="M13.046 9.388a3.919 3.919 0 0 0-.66.19c-.809.312-1.447.991-1.666 1.775a2.269 2.269 0 0 0-.074.81c.048.546.333 1.05.764 1.35a1.483 1.483 0 0 0 2.01-.286c.406-.531.355-1.183.24-1.636-.098-.387-.22-.816-.345-1.249a64.76 64.76 0 0 1-.269-.954zm-.82 10.07c-3.984 0-7.224-3.24-7.224-7.223 0-.98.226-3.02 1.884-4.822A7.188 7.188 0 0 1 9.502 5.6a.792.792 0 1 1 .587 1.472 5.619 5.619 0 0 0-2.795 2.462 5.538 5.538 0 0 0-.707 2.7 5.645 5.645 0 0 0 5.638 5.638c1.844 0 3.627-.953 4.542-2.428 1.042-1.68.772-3.931-.627-5.238a3.299 3.299 0 0 0-1.437-.777c.172.589.334 1.18.494 1.772.284 1.12.1 2.181-.519 2.989-.39.51-.956.888-1.592 1.064a3.038 3.038 0 0 1-2.58-.44 3.45 3.45 0 0 1-1.44-2.514c-.04-.467.002-.93.128-1.376.35-1.256 1.356-2.339 2.622-2.826a5.5 5.5 0 0 1 .823-.246l-.134-.505c-.37-1.371.25-2.579 1.547-3.007.329-.109.68-.145 1.025-.105.792.09 1.476.592 1.709 1.023.258.507-.096 1.153-.706 1.153a.788.788 0 0 1-.54-.213c-.088-.08-.163-.174-.259-.247a.825.825 0 0 0-.632-.166.807.807 0 0 0-.634.551c-.056.191-.031.406.02.595.07.256.159.597.217.82 1.11.098 2.162.54 2.97 1.296 1.974 1.844 2.35 4.886.892 7.233-1.197 1.93-3.509 3.177-5.889 3.177zM0 12c0 6.627 5.373 12 12 12s12-5.373 12-12S18.627 0 12 0 0 5.373 0 12Z"/></symbol><symbol id="i-brand-qq" viewBox="0 0 169.03343 177.05359"><g transform="translate(-14.693387,-35.461841)"><g transform="matrix(2.519673,0,0,2.519673,-493.77296,1465.4508)"><circle cx="235.34128" cy="-530.80383" r="33.542732" fill="#fdcd18"/><path d="m 240.45119,-527.94916 c -0.84214,-1.1847 -1.64146,-2.29803 -2.44077,-3.39709 -3.06881,-4.2535 -6.15188,-8.50701 -9.23496,-12.74624 -1.95547,-2.69769 -3.89667,-5.39538 -5.88068,-8.06453 -0.59949,-0.79931 -0.67086,-1.64145 -0.39966,-2.55496 0.55667,-1.89837 1.8841,-3.21153 3.45419,-4.29632 2.86897,-1.98402 6.10906,-2.99744 9.50615,-3.59692 2.95462,-0.51385 5.88068,-1.14188 8.46419,-2.76906 0.6994,-0.44248 1.28461,-1.04197 1.92692,-1.57009 0.17128,-0.14273 0.32829,-0.29974 0.65658,-0.58521 0.2141,1.04197 0.42821,1.91265 0.57094,2.78333 0.42821,2.56923 0.2712,5.0671 -0.88496,7.4365 -1.57008,3.19726 -4.13931,5.19555 -7.50786,6.22324 -2.05538,0.65659 -4.18213,0.81359 -6.33743,0.79932 -0.15701,0 -0.31402,0.0428 -0.58522,0.0714 0.52812,0.92778 0.99915,1.79846 1.51299,2.6406 2.06966,3.38282 4.13932,6.76564 6.19471,10.16273 l 6.76564,11.21897 c 0.58521,0.9706 1.19897,1.9412 1.76991,2.92607 1.32744,2.28376 2.29803,4.66744 2.11248,7.40795 -0.18556,2.68342 -1.15616,5.02427 -2.82616,7.07966 -2.72623,3.35427 -6.26606,5.29547 -10.49102,6.05196 -3.98231,0.6994 -7.77906,0.25693 -11.30461,-1.75564 -3.96804,-2.25521 -6.50872,-6.35171 -5.90923,-11.23324 0.38538,-3.21154 1.98401,-5.86641 4.33914,-8.05026 2.51214,-2.31231 5.4953,-3.72538 8.82103,-4.36769 2.45504,-0.4853 4.91008,-0.45675 7.33658,0.19983 0.0714,0.0143 0.157,-0.0143 0.37111,-0.0143 z" fill="#0daf52"/></g></g></symbol></svg>
+
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <img class="brand-logo" src="/assets/app-logo.png" alt="" width="34" height="34" aria-hidden="true" />
+          <div class="brand-text">
+            <h1>酷狗 / 网易云转换器</h1>
+            <p class="brand-sub">KGG · KGM · NCM · KWM · QMC</p>
+          </div>
+        </div>
+        <div class="topbar-meta">
+          <button id="checkUpdateButton" class="button button-secondary button-compact" type="button" aria-describedby="updateStatus">
+            <svg class="icon" aria-hidden="true"><use href="#i-refresh-cw" /></svg>
+            <span class="btn-label">检查更新</span>
+          </button>
+          <span id="versionBadge" class="version-badge">v0.6.0</span>
+          <span id="runtimeBadge" class="status-badge" data-state="checking">检查运行时</span>
+          <button id="themeToggleButton" class="theme-toggle" type="button" aria-label="切换深浅色主题" aria-pressed="false">
+            <svg class="icon icon-moon" aria-hidden="true"><use href="#i-moon" /></svg>
+            <svg class="icon icon-sun" aria-hidden="true"><use href="#i-sun" /></svg>
+          </button>
+          <button id="githubLinkButton" class="theme-toggle" type="button" aria-label="打开 GitHub 项目" title="GitHub 项目">
+            <svg class="icon" aria-hidden="true"><use href="#i-github" /></svg>
+          </button>
+        </div>
+      </header>
+
+      <section id="updateNotice" class="update-notice" role="status" aria-live="polite" hidden>
+        <svg class="icon notice-icon" aria-hidden="true"><use href="#i-bell-ring" /></svg>
+        <div class="notice-body">
+          <strong id="updateNoticeTitle">发现新版本</strong>
+          <p id="updateStatus"></p>
+        </div>
+        <div class="update-actions">
+          <button id="openUpdateButton" class="button button-primary button-compact" type="button">
+            <svg class="icon" aria-hidden="true"><use href="#i-download" /></svg>
+            <span class="btn-label">下载并安装</span>
+          </button>
+          <button id="openReleasePageButton" class="button button-secondary button-compact" type="button" hidden>
+            <svg class="icon" aria-hidden="true"><use href="#i-external-link" /></svg>
+            <span class="btn-label">查看 Releases</span>
+          </button>
+          <button id="ignoreUpdateButton" class="button button-secondary button-compact" type="button" hidden>忽略此版本</button>
+          <button id="dismissUpdateButton" class="button button-secondary button-compact" type="button">稍后</button>
+        </div>
+      </section>
+
+      <main id="workspace" class="workspace">
+        <section class="primary-panel" aria-labelledby="queueHeading">
+          <div class="section-heading">
+            <div>
+              <h2 id="queueHeading">
+                <svg class="icon" aria-hidden="true"><use href="#i-music" /></svg>
+                待转换队列
+              </h2>
+              <p>选择或拖入酷狗、网易云、酷我或传统 QMC 加密音频，也可直接拖入文件夹。</p>
+            </div>
+            <div class="heading-actions">
+              <button id="clearFilesButton" class="button button-secondary" type="button" hidden>
+                <svg class="icon" aria-hidden="true"><use href="#i-trash-2" /></svg>
+                <span class="btn-label">清空队列</span>
+              </button>
+              <button id="scanFolderButton" class="button button-secondary" type="button" aria-describedby="scanHelp scanError">
+                <svg class="icon" aria-hidden="true"><use href="#i-folder-plus" /></svg>
+                <span class="btn-label">添加文件夹</span>
+              </button>
+              <button id="findMusicButton" class="button button-secondary" type="button" aria-describedby="findMusicHelp findMusicError">
+                <svg class="icon" aria-hidden="true"><use href="#i-foldersearch" /></svg>
+                <span class="btn-label">查找本机音乐</span>
+              </button>
+              <button id="pickFilesButton" class="button button-primary" type="button" aria-describedby="fileError" title="选择音频文件（Ctrl+O）">
+                <svg class="icon" aria-hidden="true"><use href="#i-upload" /></svg>
+                <span class="btn-label">选择音频文件</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="folder-tools">
+            <label class="checkbox-label" for="scanRecursive">
+              <input id="scanRecursive" type="checkbox" checked />
+              <span>添加文件夹时包含子文件夹</span>
+            </label>
+            <p id="scanHelp" class="field-help" role="status" aria-live="polite">只会加入已支持的酷狗、网易云、酷我和传统 QMC 文件，最多 500 个。</p>
+          </div>
+          <p id="scanError" class="inline-error" role="alert" hidden></p>
+
+          <div id="emptyQueue" class="empty-state" role="button" tabindex="0" aria-label="选择或拖入加密音频文件">
+            <div class="drop-hero-icon" aria-hidden="true">
+              <svg class="icon"><use href="#i-upload-cloud" /></svg>
+            </div>
+            <strong class="drop-hero-title">拖放加密音频到此处</strong>
+            <p class="drop-hero-sub">或点击此处选择文件，支持直接拖入文件夹</p>
+            <div class="format-chips" aria-hidden="true">
+              <span>KGG</span>
+              <span>KGM</span>
+              <span>KGMA</span>
+              <span>VPR</span>
+              <span>NCM</span>
+              <span>KWM</span>
+              <span>QMC</span>
+            </div>
+          </div>
+
+          <!-- 查找本机音乐内联结果区 -->
+          <section id="findMusicPanel" class="find-music-panel" aria-labelledby="findMusicHeading" hidden>
+            <div class="section-heading compact">
+              <div>
+                <h2 id="findMusicHeading">
+                  <svg class="icon" aria-hidden="true"><use href="#i-foldersearch" /></svg>
+                  查找本机音乐
+                </h2>
+                <p id="findMusicHelp" class="field-help">检测常见音乐软件的默认下载目录，勾选后可加入队列。</p>
+              </div>
+              <div class="heading-actions">
+                <button id="findMusicCollapseButton" class="button button-secondary button-compact find-music-collapse" type="button" aria-expanded="true" aria-label="折叠查找结果">
+                  <svg class="icon" aria-hidden="true"><use href="#i-chevron-down" /></svg>
+                </button>
+                <button id="findMusicClearButton" class="button button-secondary button-compact" type="button" hidden>
+                  <svg class="icon" aria-hidden="true"><use href="#i-x" /></svg>
+                  <span class="btn-label">清空结果</span>
+                </button>
+              </div>
+            </div>
+
+            <div id="findMusicStatus" class="find-music-status" role="status" aria-live="polite">
+              <p>点击"查找本机音乐"开始检测。</p>
+            </div>
+            <p id="findMusicError" class="inline-error" role="alert" hidden></p>
+
+            <div id="findMusicResult" class="find-music-result" hidden>
+              <div class="find-music-summary">
+                <label class="checkbox-label">
+                  <input id="findMusicSelectAll" type="checkbox" checked />
+                  <span>全选</span>
+                </label>
+                <span id="findMusicSummary" class="field-help"></span>
+                <button id="findMusicAddButton" class="button button-primary button-compact" type="button" disabled>
+                  <svg class="icon" aria-hidden="true"><use href="#i-plus" /></svg>
+                  <span class="btn-label">加入队列</span>
+                </button>
+              </div>
+              <ul id="findMusicList" class="find-music-list" aria-label="检测结果"></ul>
+            </div>
+          </section>
+
+          <div id="queueSummary" class="queue-summary" role="status" aria-live="polite" hidden></div>
+          <ul id="fileList" class="file-list" aria-label="待转换文件" hidden></ul>
+          <section id="previewPanel" class="preview-panel" aria-labelledby="previewHeading" hidden>
+            <div class="preview-info">
+              <strong id="previewHeading">
+                <svg class="icon" aria-hidden="true"><use href="#i-play" /></svg>
+                正在试听
+              </strong>
+              <p id="previewFileName"></p>
+            </div>
+            <audio id="previewAudio" controls preload="metadata" aria-label="转换结果试听播放器"></audio>
+          </section>
+          <p id="fileError" class="inline-error" role="alert" hidden></p>
+
+          <section id="progressPanel" class="progress-panel" aria-labelledby="progressHeading" hidden>
+            <div class="progress-heading">
+              <div>
+                <h3 id="progressHeading">转换进度</h3>
+                <p id="progressStatus" role="status" aria-live="polite">准备开始…</p>
+              </div>
+              <strong id="progressPercent" class="progress-percent">0%</strong>
+            </div>
+            <div id="totalProgressTrack" class="progress-track" role="progressbar" aria-label="转换总进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+              <div id="totalProgress" class="progress-fill"></div>
+            </div>
+            <div id="resultSummary" class="result-summary" role="status" aria-live="polite" hidden>
+              <div class="stat-grid">
+                <div class="stat-card stat-success">
+                  <span class="stat-number" id="statSuccess">0</span>
+                  <span class="stat-label">成功</span>
+                </div>
+                <div class="stat-card stat-failed">
+                  <span class="stat-number" id="statFailed">0</span>
+                  <span class="stat-label">失败</span>
+                </div>
+                <div class="stat-card stat-duration">
+                  <span class="stat-number" id="statDuration">0s</span>
+                  <span class="stat-label">总耗时</span>
+                </div>
+              </div>
+              <div class="result-footer">
+                <p id="resultSummaryText"></p>
+                <div class="result-actions">
+                  <button id="retryFailedButton" class="button button-secondary" type="button" hidden>
+                    <svg class="icon" aria-hidden="true"><use href="#i-rotate-cw" /></svg>
+                    <span class="btn-label">重试全部失败项</span>
+                  </button>
+                  <button id="exportFailedButton" class="button button-secondary" type="button" hidden>
+                    <svg class="icon" aria-hidden="true"><use href="#i-download" /></svg>
+                    <span class="btn-label">导出失败列表</span>
+                  </button>
+                  <button id="openOutputButton" class="button button-secondary" type="button">
+                    <svg class="icon" aria-hidden="true"><use href="#i-folder-open" /></svg>
+                    <span class="btn-label">打开输出目录</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <aside class="settings-panel" aria-labelledby="settingsHeading">
+          <div class="section-heading compact">
+            <div>
+              <h2 id="settingsHeading">
+                <svg class="icon" aria-hidden="true"><use href="#i-settings-2" /></svg>
+                转换设置
+              </h2>
+            </div>
+          </div>
+
+          <div class="settings-fields">
+          <label class="field-label" for="formatSelect">输出格式</label>
+          <select id="formatSelect" class="field-control">
+            <option value="mp3">MP3（推荐）</option>
+            <option value="flac">FLAC</option>
+            <option value="wav">WAV</option>
+            <option value="copy">保持原格式</option>
+          </select>
+
+          <div id="qualityField">
+            <label class="field-label" for="qualitySelect">MP3 音质</label>
+            <select id="qualitySelect" class="field-control">
+              <option value="0">最高质量</option>
+              <option value="2" selected>高质量（推荐）</option>
+              <option value="5">平衡</option>
+              <option value="7">较小文件</option>
+            </select>
+          </div>
+
+          <label class="field-label" for="concurrencySelect">并发处理数</label>
+          <select id="concurrencySelect" class="field-control" aria-describedby="concurrencyHelp"></select>
+          <p id="concurrencyHelp" class="field-help">较高并发会增加 CPU、内存和磁盘占用。</p>
+
+          <label class="field-label" for="outputDirectory">
+            <svg class="icon" aria-hidden="true"><use href="#i-folder-output" /></svg>
+            输出目录
+          </label>
+          <div class="directory-control output-control">
+            <input id="outputDirectory" class="field-control" type="text" readonly aria-describedby="outputHelp outputError" />
+            <button id="pickOutputButton" class="button button-secondary" type="button">
+              <svg class="icon" aria-hidden="true"><use href="#i-folder-open" /></svg>
+              <span class="btn-label">浏览</span>
+            </button>
+            <button id="openConfiguredOutputButton" class="button button-secondary" type="button">
+              <svg class="icon" aria-hidden="true"><use href="#i-folder" /></svg>
+              <span class="btn-label">打开</span>
+            </button>
+          </div>
+          <p id="outputHelp" class="field-help">可在开始转换前随时更改。</p>
+          <p id="outputError" class="inline-error" role="alert" hidden></p>
+
+          <label class="field-label" for="databasePath">
+            <svg class="icon" aria-hidden="true"><use href="#i-database" /></svg>
+            KGG 数据库
+          </label>
+          <div class="directory-control database-control">
+            <input id="databasePath" class="field-control" type="text" readonly aria-describedby="databaseHelp databaseError" />
+            <button id="pickDatabaseButton" class="button button-secondary" type="button">
+              <svg class="icon" aria-hidden="true"><use href="#i-database" /></svg>
+              <span class="btn-label">选择</span>
+            </button>
+            <button id="redetectDatabaseButton" class="button button-secondary" type="button">
+              <svg class="icon" aria-hidden="true"><use href="#i-refresh-cw" /></svg>
+              <span class="btn-label">重新检测</span>
+            </button>
+          </div>
+          <p id="databaseHelp" class="field-help">仅转换 KGG 时需要 KGMusicV3.db；程序会优先自动检测。</p>
+          <p id="databaseError" class="inline-error" role="alert" hidden></p>
+
+          <div class="runtime-card" aria-live="polite">
+            <svg class="icon" aria-hidden="true"><use href="#i-info" /></svg>
+            <div>
+              <strong>运行环境</strong>
+              <p id="runtimeMessage">正在检查 FFmpeg 运行时…</p>
+            </div>
+          </div>
+          </div>
+
+          <div class="action-area">
+            <div class="action-buttons">
+              <button id="convertButton" class="button button-convert button-block" type="button" aria-describedby="convertHelp conversionError" title="开始转换（Enter）" disabled>
+                <svg class="icon" aria-hidden="true"><use href="#i-play" /></svg>
+                <span class="btn-label">开始转换</span>
+              </button>
+              <button id="cancelButton" class="button button-secondary button-block" type="button" aria-describedby="convertHelp" title="取消转换（Esc）" hidden>
+                <svg class="icon" aria-hidden="true"><use href="#i-square" /></svg>
+                <span class="btn-label">取消转换</span>
+              </button>
+            </div>
+            <p id="convertHelp" class="field-help">选择文件和输出目录后即可开始。</p>
+            <p id="conversionError" class="inline-error" role="alert" hidden></p>
+          </div>
+        </aside>
+      </main>
+
+      <section class="history-panel" aria-labelledby="historyHeading">
+        <div class="section-heading compact">
+          <div>
+            <h2 id="historyHeading">
+              <svg class="icon" aria-hidden="true"><use href="#i-history" /></svg>
+              最近转换
+            </h2>
+            <p>最多保留 50 次任务，默认显示最近 10 次；可恢复设置或删除记录。</p>
+          </div>
+          <div class="heading-actions">
+            <button id="historyToggleButton" class="button button-secondary button-compact" type="button" hidden>显示全部</button>
+            <button id="clearHistoryButton" class="button button-danger button-compact" type="button" hidden>
+              <svg class="icon" aria-hidden="true"><use href="#i-trash-2" /></svg>
+              <span class="btn-label">清空历史</span>
+            </button>
+          </div>
+        </div>
+        <div id="historyEmpty" class="history-empty">完成一次转换后，记录会显示在这里。</div>
+        <ol id="historyList" class="history-list" aria-label="最近转换记录" hidden></ol>
+      </section>
+
+      <details class="advanced-panel">
+        <summary>
+          <svg class="icon" aria-hidden="true"><use href="#i-search" /></svg>
+          高级工具：批量扫描、缓存与诊断
+          <svg class="icon summary-chevron" aria-hidden="true"><use href="#i-chevron-down" /></svg>
+        </summary>
+        <div class="advanced-content">
+          <section class="advanced-section" aria-labelledby="advancedScanHeading">
+            <div class="section-heading compact">
+              <div>
+                <h2 id="advancedScanHeading">批量目录扫描</h2>
+                <p>用于盘点文件；扫描结果不会自动加入转换队列。</p>
+              </div>
+              <div class="heading-actions">
+                <button id="addAdvancedFolderButton" class="button button-secondary button-compact" type="button">
+                  <svg class="icon" aria-hidden="true"><use href="#i-folder-plus" /></svg>
+                  <span class="btn-label">添加目录</span>
+                </button>
+                <button id="clearAdvancedFoldersButton" class="button button-secondary button-compact" type="button" hidden>
+                  <svg class="icon" aria-hidden="true"><use href="#i-trash-2" /></svg>
+                  <span class="btn-label">清空目录</span>
+                </button>
+              </div>
+            </div>
+
+            <ul id="advancedFolderList" class="folder-list" aria-label="待扫描目录"></ul>
+            <div class="advanced-options">
+              <label class="checkbox-label" for="advancedRecursive">
+                <input id="advancedRecursive" type="checkbox" checked />
+                <span>包含子文件夹</span>
+              </label>
+              <label class="compact-field" for="advancedFilter">
+                <span>文件类型</span>
+                <select id="advancedFilter" class="field-control">
+                  <option value="">全部文件</option>
+                  <option value=".kgg,.kgm,.kgma,.vpr,.ncm,.kwm,.qmc0,.qmc2,.qmc3,.qmc4,.qmc6,.qmc8,.qmcflac,.qmcogg,.tkm">可转换的加密音频</option>
+                  <option value=".mp3,.flac,.wav,.m4a,.aac,.ogg,.opus,.wma">常见音频</option>
+                  <option value="custom">自定义扩展名</option>
+                </select>
+              </label>
+              <label id="customFilterField" class="compact-field" for="customFilterInput" hidden>
+                <span>自定义扩展名</span>
+                <input id="customFilterInput" class="field-control" type="text" placeholder="例如 .mp3,.flac" />
+              </label>
+              <button id="runAdvancedScanButton" class="button button-primary" type="button" aria-describedby="advancedScanStatus advancedScanError" disabled>
+                <svg class="icon" aria-hidden="true"><use href="#i-search" /></svg>
+                <span class="btn-label">开始扫描</span>
+              </button>
+            </div>
+            <p id="advancedScanStatus" class="field-help" role="status" aria-live="polite">先添加一个或多个本地目录。</p>
+            <p id="advancedScanError" class="inline-error" role="alert" hidden></p>
+
+            <div id="advancedResult" class="advanced-result" hidden>
+              <div class="result-summary compact-result">
+                <p id="advancedResultSummary"></p>
+                <div class="result-actions">
+                  <button id="copyAdvancedNamesButton" class="button button-secondary button-compact" type="button">
+                    <svg class="icon" aria-hidden="true"><use href="#i-copy" /></svg>
+                    <span class="btn-label">复制文件名</span>
+                  </button>
+                  <button id="copyAdvancedPathsButton" class="button button-secondary button-compact" type="button">
+                    <svg class="icon" aria-hidden="true"><use href="#i-file" /></svg>
+                    <span class="btn-label">复制完整路径</span>
+                  </button>
+                  <button id="exportAdvancedCsvButton" class="button button-secondary button-compact" type="button">
+                    <svg class="icon" aria-hidden="true"><use href="#i-download" /></svg>
+                    <span class="btn-label">导出 CSV</span>
+                  </button>
+                  <button id="addAdvancedQueueButton" class="button button-primary button-compact" type="button">
+                    <svg class="icon" aria-hidden="true"><use href="#i-plus" /></svg>
+                    <span class="btn-label">加入可转换文件</span>
+                  </button>
+                </div>
+              </div>
+              <ul id="advancedResultList" class="scan-result-list" aria-label="扫描结果"></ul>
+            </div>
+          </section>
+
+          <section class="advanced-section cache-section" aria-labelledby="runtimeCacheHeading">
+            <div>
+              <h2 id="runtimeCacheHeading">运行时缓存</h2>
+              <p>统计并清理本应用管理的旧 FFmpeg、旧内嵌 WebView2 与更新临时文件；当前运行时和音乐文件会保留。</p>
+            </div>
+            <div class="cache-actions">
+              <button id="refreshRuntimeCacheButton" class="button button-secondary button-compact" type="button">
+                <svg class="icon" aria-hidden="true"><use href="#i-refresh-cw" /></svg>
+                <span class="btn-label">重新统计</span>
+              </button>
+              <button id="clearRuntimeCacheButton" class="button button-danger button-compact" type="button" disabled>
+                <svg class="icon" aria-hidden="true"><use href="#i-trash-2" /></svg>
+                <span class="btn-label">清理旧缓存</span>
+              </button>
+            </div>
+            <p id="runtimeCacheStatus" class="field-help" role="status" aria-live="polite">正在统计运行时缓存…</p>
+          </section>
+
+          <section class="advanced-section diagnostic-section" aria-labelledby="diagnosticHeading">
+            <div>
+              <h2 id="diagnosticHeading">桌面诊断日志</h2>
+              <p>导出本次运行的状态与操作记录，便于提交问题；不会包含音频内容。</p>
+            </div>
+            <button id="exportDiagnosticButton" class="button button-secondary" type="button" aria-describedby="diagnosticStatus">
+              <svg class="icon" aria-hidden="true"><use href="#i-download" /></svg>
+              <span class="btn-label">导出诊断日志</span>
+            </button>
+            <p id="diagnosticStatus" class="field-help" role="status" aria-live="polite"></p>
+            <ol id="diagnosticList" class="diagnostic-list" role="log" aria-label="本次运行诊断记录"></ol>
+          </section>
+        </div>
+      </details>
+    </div>
+
+    <div id="contextMenu" class="context-menu" role="menu" hidden></div>
+
+    <!-- 首次打开开源声明弹窗 -->
+    <div id="firstRunOverlay" class="first-run-overlay" hidden>
+      <div class="first-run-dialog" role="dialog" aria-labelledby="firstRunTitle" aria-describedby="firstRunDesc" aria-modal="true">
+        <div class="first-run-icon">
+          <svg class="icon" aria-hidden="true"><use href="#i-github" /></svg>
+        </div>
+        <h2 id="firstRunTitle">开源软件声明</h2>
+        <div id="firstRunDesc" class="first-run-content">
+          <p>本软件是<strong>免费开源项目</strong>，源代码公开于 GitHub。</p>
+          <p>请勿在任何第三方平台<strong>付费购买</strong>本软件。如果您是通过付费渠道获得本软件，请立即向出售方申请退款。</p>
+          <p class="first-run-note">本软件仅供学习交流，音频解密与转换均在您本机完成，文件不会发送到网络。</p>
+        </div>
+        <div class="first-run-actions">
+          <button id="firstRunConfirm" class="button button-convert" type="button">
+            <svg class="icon" aria-hidden="true"><use href="#i-circle-check" /></svg>
+            <span class="btn-label">我知道了</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/main.js"></script>
+  </body>
+</html>

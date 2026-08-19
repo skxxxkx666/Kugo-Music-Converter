@@ -75,10 +75,10 @@ func (h *ConvertHandler) HandleUploadDB(w http.ResponseWriter, r *http.Request) 
 	if err := r.ParseMultipartForm(10 << 20); err != nil {
 		var maxErr *http.MaxBytesError
 		if errors.As(err, &maxErr) {
-			writeError(w, http.StatusBadRequest, NewAppError(ErrDBPathInvalid, "上传体积超限（最大 100MB）", err))
+			writeError(w, http.StatusBadRequest, NewAppError(ErrDBPathInvalid, "数据库文件体积超限（最大 100MB）", err))
 			return
 		}
-		writeError(w, http.StatusBadRequest, NewAppError(ErrDBPathInvalid, "上传表单解析失败", err))
+		writeError(w, http.StatusBadRequest, NewAppError(ErrDBPathInvalid, "数据库文件数据解析失败", err))
 		return
 	}
 
@@ -88,7 +88,7 @@ func (h *ConvertHandler) HandleUploadDB(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if files[0].Size > maxUploadDBSize {
-		writeError(w, http.StatusBadRequest, NewAppError(ErrDBPathInvalid, "上传体积超限（最大 100MB）", nil))
+		writeError(w, http.StatusBadRequest, NewAppError(ErrDBPathInvalid, "数据库文件体积超限（最大 100MB）", nil))
 		return
 	}
 

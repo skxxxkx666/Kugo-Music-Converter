@@ -1,0 +1,18 @@
+Microsoft Edge WebView2 Runtime notice
+======================================
+
+The optional WebView2 build of Kugo Music Converter redistributes the
+Microsoft Edge WebView2 Fixed Version Runtime published by Microsoft
+Corporation. Microsoft retains all rights in that runtime.
+
+The runtime is redistributed only as a dependency of this application and is
+not covered by Kugo Music Converter's GPL-3.0 license. Version, architecture,
+package hash and the official Microsoft download location are recorded in
+WEBVIEW2-SOURCE.md.
+
+Official WebView2 download and distribution information:
+
+https://developer.microsoft.com/microsoft-edge/webview2/
+https://learn.microsoft.com/microsoft-edge/webview2/concepts/distribution
+
+This project is not affiliated with or endorsed by Microsoft Corporation.

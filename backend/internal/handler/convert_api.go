@@ -209,11 +209,11 @@ func (h *ConvertHandler) parseConvertRequest(w http.ResponseWriter, r *http.Requ
 		if errors.As(err, &maxBytesErr) {
 			return nil, NewAppError(
 				ErrFileTooLarge,
-				fmt.Sprintf("单次上传总大小超过限制（最大 %d MiB）", maxUploadTotalBytes/(1024*1024)),
+				fmt.Sprintf("单次任务总大小超过限制（最大 %d MiB）", maxUploadTotalBytes/(1024*1024)),
 				err,
 			)
 		}
-		return nil, NewAppError("ERR_UNKNOWN", "上传表单解析失败", err)
+		return nil, NewAppError("ERR_UNKNOWN", "文件数据解析失败", err)
 	}
 
 	items := make([]service.BatchItem, 0, h.cfg.MaxFiles)
@@ -238,7 +238,7 @@ func (h *ConvertHandler) parseConvertRequest(w http.ResponseWriter, r *http.Requ
 			f, err := hdr.Open()
 			if err != nil {
 				cleanup()
-				return nil, NewAppError("ERR_UNKNOWN", "打开上传文件失败", err)
+				return nil, NewAppError("ERR_UNKNOWN", "打开输入文件失败", err)
 			}
 			item, err := copyUploadToTemp(f, hdr)
 			_ = f.Close()
@@ -260,7 +260,7 @@ func (h *ConvertHandler) parseConvertRequest(w http.ResponseWriter, r *http.Requ
 
 	if len(items) == 0 {
 		cleanup()
-		return nil, NewAppError(ErrNoFiles, "未上传可转换文件", nil)
+		return nil, NewAppError(ErrNoFiles, "未选择可转换文件", nil)
 	}
 	if len(items) > h.cfg.MaxFiles {
 		cleanup()
