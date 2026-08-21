@@ -1,6 +1,8 @@
 name: "🎵 转换 / 解密失败"
 description: "某个音频文件无法识别、解密、转码或输出异常"
 title: "[Conversion] "
+labels:
+  - conversion
 body:
   - type: markdown
     attributes:
