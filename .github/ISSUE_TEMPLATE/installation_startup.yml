@@ -2,7 +2,7 @@ name: "🖥️ 安装 / 启动问题"
 description: "安装失败、程序打不开、WebView2、闪退或启动异常"
 title: "[Startup] "
 labels:
-  - bug
+  - startup
 body:
   - type: markdown
     attributes:
