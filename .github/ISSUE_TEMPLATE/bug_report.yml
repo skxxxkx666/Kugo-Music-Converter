@@ -1,0 +1,110 @@
+name: "🐛 Bug 报告"
+description: "程序崩溃、功能异常、界面错误或其他可复现的问题"
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢你帮助改进 Kugo Music Converter。
+
+        提交前请先：
+        - 确认正在使用最新版本；
+        - 搜索现有 Issues，避免重复提交；
+        - 不要上传受版权保护的完整音频、账号凭据、Cookie、Token、数据库文件或其他敏感信息。
+
+  - type: input
+    id: version
+    attributes:
+      label: "Kugo Music Converter 版本"
+      description: "例如：v0.6.0"
+      placeholder: "v0.6.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: package
+    attributes:
+      label: "使用的程序版本"
+      options:
+        - "安装版（setup.exe）"
+        - "便携版（.exe）"
+        - "内置 WebView2 安装版"
+        - "内置 WebView2 便携版"
+        - "自行编译"
+        - "不确定"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: "Windows 版本"
+      options:
+        - "Windows 11"
+        - "Windows 10"
+        - "其他 / 不确定"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: "问题描述"
+      description: "清楚说明发生了什么，以及问题影响了哪个功能。"
+      placeholder: "例如：点击“添加文件夹”后窗口没有响应……"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: "复现步骤"
+      description: "请按顺序写出能够稳定触发问题的操作。"
+      placeholder: |
+        1. 启动程序
+        2. 点击……
+        3. 选择……
+        4. 出现……
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: "期望行为"
+      placeholder: "你认为程序正常情况下应该怎样表现？"
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: "实际行为 / 错误信息"
+      description: "请尽量粘贴完整错误文字。"
+      render: shell
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: "截图或录屏"
+      description: "可直接将图片或录屏拖入此处。请先遮盖用户名、路径中的隐私信息等。"
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: "补充信息"
+      description: "例如：是否首次出现、升级前是否正常、是否能稳定复现、相关设置等。"
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: "提交前确认"
+      options:
+        - label: "我已经使用最新版本测试过该问题。"
+          required: true
+        - label: "我已经搜索现有 Issues，没有发现相同问题。"
+          required: true
+        - label: "我没有在 Issue 中上传账号凭据、Token、Cookie、数据库文件或受版权保护的完整音频。"
+          required: true

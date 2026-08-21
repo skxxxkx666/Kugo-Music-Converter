@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "💬 使用问题 / 一般讨论"
+    url: "https://github.com/skxxxkx666/Kugo-Music-Converter/discussions"
+    about: "不确定是不是 Bug、使用方法咨询或一般讨论，请优先前往 Discussions。"
+  - name: "📖 项目说明与下载"
+    url: "https://github.com/skxxxkx666/Kugo-Music-Converter"
+    about: "提交 Issue 前建议先查看 README、使用说明和最新版本信息。"

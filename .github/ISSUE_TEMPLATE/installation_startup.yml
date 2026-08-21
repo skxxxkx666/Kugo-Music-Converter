@@ -1,0 +1,97 @@
+name: "🖥️ 安装 / 启动问题"
+description: "安装失败、程序打不开、WebView2、闪退或启动异常"
+title: "[Startup] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        此模板用于 v0.6.0 及之后桌面版的安装和启动问题。
+
+  - type: input
+    id: version
+    attributes:
+      label: "Kugo Music Converter 版本"
+      placeholder: "v0.6.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: package
+    attributes:
+      label: "下载的版本"
+      options:
+        - "标准安装版（setup.exe）"
+        - "标准便携版（.exe）"
+        - "内置 WebView2 安装版"
+        - "内置 WebView2 便携版"
+        - "自行编译"
+        - "不确定"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: "Windows 版本"
+      options:
+        - "Windows 11"
+        - "Windows 10"
+        - "Windows 7"
+        - "Windows Server"
+        - "其他 / 不确定"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: symptom
+    attributes:
+      label: "问题类型"
+      options:
+        - "安装器无法启动"
+        - "安装过程中报错"
+        - "双击程序无反应"
+        - "启动后立即闪退"
+        - "白屏 / 黑屏"
+        - "WebView2 相关错误"
+        - "FFmpeg 初始化 / 解压错误"
+        - "安全软件拦截 / 误报"
+        - "其他"
+    validations:
+      required: true
+
+  - type: textarea
+    id: error
+    attributes:
+      label: "错误信息"
+      description: "请完整粘贴错误文字，或拖入截图。"
+      render: text
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: "复现步骤"
+      placeholder: |
+        1. 下载……
+        2. 双击……
+        3. 出现……
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: "已经尝试过什么？"
+      description: "例如重新下载、换便携版、换内置 WebView2 版、重启系统等。"
+
+  - type: textarea
+    id: security_software
+    attributes:
+      label: "安全软件"
+      description: "例如 Microsoft Defender、火绒、360 等；没有可填写“无”。"
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: "补充信息"

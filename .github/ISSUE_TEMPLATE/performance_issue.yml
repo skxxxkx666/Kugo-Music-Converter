@@ -1,0 +1,84 @@
+name: "⚡ 性能问题"
+description: "转换速度异常、CPU/内存占用过高、卡顿或并发异常"
+title: "[Performance] "
+body:
+  - type: input
+    id: version
+    attributes:
+      label: "Kugo Music Converter 版本"
+      placeholder: "v0.6.0"
+    validations:
+      required: true
+
+  - type: input
+    id: cpu
+    attributes:
+      label: "CPU"
+      placeholder: "例如：AMD Ryzen 5 5600X"
+    validations:
+      required: true
+
+  - type: input
+    id: ram
+    attributes:
+      label: "内存"
+      placeholder: "例如：16 GB"
+    validations:
+      required: true
+
+  - type: input
+    id: storage
+    attributes:
+      label: "源文件 / 输出目录所在磁盘"
+      placeholder: "例如：NVMe SSD / SATA SSD / HDD"
+
+  - type: input
+    id: file_count
+    attributes:
+      label: "文件数量与总大小"
+      placeholder: "例如：120 个文件，共 8.4 GB"
+    validations:
+      required: true
+
+  - type: input
+    id: concurrency
+    attributes:
+      label: "并发数设置"
+      placeholder: "例如：4"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: operation
+    attributes:
+      label: "主要操作"
+      options:
+        - "仅解密 / 原始输出"
+        - "转换为 MP3"
+        - "转换为 FLAC"
+        - "转换为 WAV"
+        - "本机音乐扫描"
+        - "程序界面操作"
+        - "其他"
+    validations:
+      required: true
+
+  - type: textarea
+    id: symptom
+    attributes:
+      label: "性能问题描述"
+      description: "请描述速度、CPU/内存占用、卡顿持续时间等。"
+    validations:
+      required: true
+
+  - type: textarea
+    id: comparison
+    attributes:
+      label: "对比信息"
+      description: "例如旧版本速度、不同并发数、不同磁盘或不同格式下的表现。"
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: "补充信息"
+      description: "可附任务管理器截图等。"

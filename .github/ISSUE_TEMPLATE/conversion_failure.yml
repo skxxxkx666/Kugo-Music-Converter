@@ -1,0 +1,132 @@
+name: "🎵 转换 / 解密失败"
+description: "某个音频文件无法识别、解密、转码或输出异常"
+title: "[Conversion] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        此模板专门用于音频转换、解密和输出问题。
+
+        **请勿上传完整受版权保护的音乐文件、KGMusicV3.db、账号数据、Cookie、Token 或其他敏感文件。**
+        如需说明样本，请优先提供文件扩展名、文件大小、来源客户端版本、错误信息和可公开的文件头信息。
+
+  - type: input
+    id: version
+    attributes:
+      label: "Kugo Music Converter 版本"
+      placeholder: "v0.6.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: source
+    attributes:
+      label: "文件来源"
+      options:
+        - "酷狗音乐"
+        - "网易云音乐"
+        - "酷我音乐"
+        - "QQ 音乐"
+        - "其他"
+        - "不确定"
+    validations:
+      required: true
+
+  - type: input
+    id: source_version
+    attributes:
+      label: "来源客户端版本"
+      description: "例如酷狗/网易云/酷我/QQ 音乐客户端版本；不知道可填写“不确定”。"
+      placeholder: "例如：20.x.x / 不确定"
+    validations:
+      required: true
+
+  - type: input
+    id: extension
+    attributes:
+      label: "原文件扩展名"
+      description: "例如 .kgg、.kgm、.kgma、.vpr、.ncm、.kwm、.qmcflac、.mflac"
+      placeholder: ".kgg"
+    validations:
+      required: true
+
+  - type: input
+    id: filesize
+    attributes:
+      label: "文件大小"
+      placeholder: "例如：42.6 MB"
+
+  - type: dropdown
+    id: output
+    attributes:
+      label: "目标输出格式"
+      options:
+        - "原始音频 / 自动"
+        - "MP3"
+        - "FLAC"
+        - "WAV"
+        - "其他 / 未进入转码阶段"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: stage
+    attributes:
+      label: "失败阶段"
+      options:
+        - "添加文件时无法识别"
+        - "读取 / 解密失败"
+        - "FFmpeg 转码失败"
+        - "转换完成但文件无法播放"
+        - "输出音频损坏 / 时长异常 / 无声"
+        - "元数据 / 封面异常"
+        - "不确定"
+    validations:
+      required: true
+
+  - type: textarea
+    id: error
+    attributes:
+      label: "完整错误信息"
+      description: "请粘贴程序显示的完整错误信息。"
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: "复现方式"
+      placeholder: |
+        1. 添加 .xxx 文件
+        2. 选择 FLAC
+        3. 点击开始转换
+        4. ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: reproducibility
+    attributes:
+      label: "是否所有同类文件都会失败？"
+      options:
+        - "是，同扩展名文件全部失败"
+        - "否，只有部分文件失败"
+        - "目前只测试了一个文件"
+        - "不确定"
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: "补充信息"
+      description: "可填写升级前是否正常、原客户端中是否可以正常播放、文件是否为近期下载等。"
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: "隐私与版权确认"
+      options:
+        - label: "我不会公开上传完整受版权保护的音乐、数据库、账号凭据、Cookie 或 Token。"
+          required: true

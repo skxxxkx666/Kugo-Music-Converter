@@ -1,0 +1,76 @@
+name: "🧩 新格式 / 新版本兼容请求"
+description: "请求支持新的加密音频格式、扩展名或音乐客户端版本"
+title: "[Format] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        用于请求新增格式支持，或反馈音乐客户端升级后产生了新的文件格式 / 加密变体。
+
+        请不要公开上传完整音乐文件、客户端数据库、账号数据或密钥。
+
+  - type: dropdown
+    id: source
+    attributes:
+      label: "来源平台"
+      options:
+        - "酷狗音乐"
+        - "网易云音乐"
+        - "酷我音乐"
+        - "QQ 音乐"
+        - "其他"
+    validations:
+      required: true
+
+  - type: input
+    id: client_version
+    attributes:
+      label: "来源客户端版本"
+      placeholder: "例如：客户端完整版本号"
+    validations:
+      required: true
+
+  - type: input
+    id: extension
+    attributes:
+      label: "文件扩展名"
+      placeholder: "例如：.mflac"
+    validations:
+      required: true
+
+  - type: input
+    id: filesize
+    attributes:
+      label: "典型文件大小"
+      placeholder: "例如：35 MB"
+
+  - type: textarea
+    id: behavior
+    attributes:
+      label: "当前程序表现"
+      description: "例如：无法加入队列、提示不支持、解密失败、转换后损坏等。"
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: "可公开的技术信息"
+      description: "可提供文件头十六进制、错误码、Magic Bytes、公开文档链接等；请勿包含密钥或隐私数据。"
+      render: text
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: "补充说明"
+      description: "例如该格式从哪个客户端版本开始出现、旧版本文件是否仍可转换等。"
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: "提交前确认"
+      options:
+        - label: "我已经确认当前最新版 Kugo Music Converter 尚不能正常处理该格式 / 变体。"
+          required: true
+        - label: "我不会公开上传完整受版权保护的音乐、数据库、账号数据或密钥。"
+          required: true
