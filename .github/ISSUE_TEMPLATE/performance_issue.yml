@@ -1,6 +1,8 @@
 name: "⚡ 性能问题"
 description: "转换速度异常、CPU/内存占用过高、卡顿或并发异常"
 title: "[Performance] "
+labels:
+  - performance
 body:
   - type: input
     id: version
