@@ -1,6 +1,8 @@
 name: "✨ 功能建议"
 description: "提出新功能、工作流改进或现有功能增强建议"
 title: "[Feature] "
+labels:
+  - enhancement
 body:
   - type: markdown
     attributes:
