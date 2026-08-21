@@ -1,6 +1,8 @@
 name: "🧩 新格式 / 新版本兼容请求"
 description: "请求支持新的加密音频格式、扩展名或音乐客户端版本"
 title: "[Format] "
+labels:
+  - format-support
 body:
   - type: markdown
     attributes:
