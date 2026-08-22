@@ -54,6 +54,6 @@ v0.6.1 将首次声明版本提升为 v2，升级用户会再次看到 modern QM
 - QQ 音乐 PC 22.52 真实 `musicex` MFLAC 解密为 FLAC；
 - QQ 音乐 PC 22.52 真实 `musicex` MGG 解密为 OGG；
 - `go test ./...`、release build-tag、`go vet ./...`、前端语法和 Node 测试通过；
-- 开发与发布构建使用 Wails CLI v2.14.0；应用运行库仍按 `go.mod` 固定为 Wails v2.12.0。
+- 开发与发布构建使用 Go 1.26.6 和 Wails CLI v2.14.0；应用运行库也按 `go.mod` 固定为 Wails v2.14.0。
 
 真实音乐文件、UIN、会话和 ekey 未加入仓库或测试夹具。

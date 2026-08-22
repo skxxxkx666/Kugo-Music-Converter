@@ -157,7 +157,7 @@ flowchart LR
 - 16 个 MGG 直接输出 OGG，并通过 `ffmpeg -v error -xerror` 完整解码；
 - 26 个 MFLAC 的原始解密 FLAC 均在已声明时长结束后出现一个末尾残缺包。应用现在会对 MFLAC Copy 输出做严格校验，检测到该模式后用内嵌 FFmpeg 无损重建 FLAC，并再次严格复验；
 - 修复后的 26 个 FLAC 与 16 个 OGG 共 42/42 严格验证通过，stderr 为空，总输出约 1.06 GB；
-- Wails CLI v2.14.0 已安装并完成 Windows amd64 开发构建；项目运行库仍按 `go.mod` 固定为 Wails v2.12.0。
+- Go 1.26.6 与 Wails CLI v2.14.0 已安装并完成 Windows amd64 开发构建；项目运行库也按 `go.mod` 固定为 Wails v2.14.0。
 
 真实文件、账号标识、会话和 ekey 未加入仓库或测试夹具。
 

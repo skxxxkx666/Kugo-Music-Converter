@@ -108,7 +108,7 @@ backend/
 ### 2.1 环境要求
 
 - Windows 10 / 11 x64；
-- Go 1.26；
+- Go 1.26.6；
 - Wails CLI v2.14.0；
 - NSIS 3；
 - Microsoft Edge WebView2 Runtime；
