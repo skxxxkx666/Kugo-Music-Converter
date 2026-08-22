@@ -14,6 +14,7 @@ import (
 
 	"kugo-music-converter/internal/config"
 	"kugo-music-converter/internal/logger"
+	"kugo-music-converter/internal/qmckey"
 	"kugo-music-converter/internal/service"
 )
 
@@ -22,6 +23,7 @@ var (
 		".kgg", ".kgm", ".kgma", ".vpr", ".ncm", ".kwm",
 		".qmc0", ".qmc2", ".qmc3", ".qmc4", ".qmc6", ".qmc8", ".qmcflac", ".qmcogg", ".tkm",
 	}
+	modernQMCInputExts = []string{".mflac", ".mgg"}
 )
 
 const (
@@ -34,10 +36,12 @@ const (
 var appVersionAttrPattern = regexp.MustCompile(`data-app-version="[^"]*"`)
 
 type ConvertHandler struct {
-	cfg            *config.Config
-	decryptService *service.DecryptService
-	startedAt      time.Time
-	version        string
+	cfg               *config.Config
+	decryptService    *service.DecryptService
+	qmcKeyResolver    qmckey.BatchResolver
+	supportsModernQMC bool
+	startedAt         time.Time
+	version           string
 
 	baseDir          string
 	publicDir        string
@@ -103,6 +107,13 @@ func NewConvertHandler(cfg *config.Config, appVersion string) *ConvertHandler {
 		h.indexHTML = []byte(injected)
 	}
 
+	return h
+}
+
+func NewDesktopConvertHandler(cfg *config.Config, appVersion string) *ConvertHandler {
+	h := NewConvertHandler(cfg, appVersion)
+	h.qmcKeyResolver = qmckey.NewDefaultResolver()
+	h.supportsModernQMC = true
 	return h
 }
 

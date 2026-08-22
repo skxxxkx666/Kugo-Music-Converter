@@ -2,7 +2,7 @@
 
 ## v0.6.0 decision
 
-Kugo Music Converter v0.6.0 is intentionally released without Authenticode signing. Applying to SignPath Foundation and enabling a signing gate are deferred for evaluation in v0.6.1.
+Kugo Music Converter v0.6.0 is intentionally released without Authenticode signing. v0.6.1 follows the same unsigned release model and does not apply to or integrate SignPath Foundation.
 
 The v0.6.0 release workflow therefore:
 
@@ -22,9 +22,13 @@ Local verification for v0.6.0:
   -ExpectedVersion v0.6.0
 ```
 
-## Proposed v0.6.1 SignPath evaluation
+## v0.6.1 status
 
-No SignPath token, organization or certificate is required for v0.6.0. If the project proceeds with SignPath Foundation in v0.6.1, configure protected GitHub settings only after the open-source project has been accepted:
+SignPath was not enabled for this branch. v0.6.1 therefore continues the v0.6.0 unsigned + published SHA-256 model. This does not activate the proposed signing policy.
+
+## Optional future signing
+
+No SignPath application or integration is planned for v0.6.1. If a later release adopts SignPath Foundation through a separate project decision, configure protected GitHub settings only after the open-source project has been accepted:
 
 | Type | Name | Purpose |
 |---|---|---|

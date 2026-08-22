@@ -1,0 +1,88 @@
+name: Build and stage v0.6.1 Windows release
+
+on:
+  push:
+    tags:
+      - 'v0.6.1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-verify-stage:
+    runs-on: windows-2022
+    timeout-minutes: 120
+
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify v0.6.1 release scope
+        shell: pwsh
+        run: |
+          $version = (Get-Content -LiteralPath VERSION -Raw).Trim()
+          if ($version -ne 'v0.6.1') {
+            throw "This unsigned release workflow is restricted to v0.6.1; VERSION is $version"
+          }
+          if ('${{ github.ref_type }}' -eq 'tag' -and $version -ne '${{ github.ref_name }}') {
+            throw "Tag ${{ github.ref_name }} does not match VERSION $version"
+          }
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install Wails CLI
+        shell: pwsh
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.14.0
+
+      - name: Install NSIS
+        shell: pwsh
+        run: |
+          choco install nsis --yes --no-progress
+          makensis -VERSION
+
+      - name: Build and verify both Windows variants
+        shell: pwsh
+        run: ./build-release.ps1 -OutputDirectory dist/release -RequireCleanTree
+
+      - name: Verify per-user installers on clean runner
+        shell: pwsh
+        run: ./test-clean-install.ps1 -ReleaseDirectory dist/release -ExpectedVersion v0.6.1 -ConfirmCleanMachine
+
+      - name: Upload verified v0.6.1 assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-v0.6.1-${{ github.run_id }}
+          path: dist/release/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Create or update draft GitHub Release
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = '${{ github.ref_name }}'
+          $notes = "RELEASE-BODY-$tag.md"
+          $assets = @(Get-ChildItem -LiteralPath dist/release -File | ForEach-Object FullName)
+          if ($assets.Count -eq 0) {
+            throw 'No verified release assets were staged.'
+          }
+          gh release view $tag 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag @assets --clobber
+          } else {
+            gh release create $tag @assets --draft --verify-tag --title "Kugo Music Converter $tag" --notes-file $notes
+          }

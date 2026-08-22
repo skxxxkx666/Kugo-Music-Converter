@@ -2,7 +2,7 @@ package handler
 
 import "testing"
 
-func TestSupportedInputExtensionsIncludeV060Formats(t *testing.T) {
+func TestSupportedInputExtensionsKeepLegacyServerSurface(t *testing.T) {
 	for _, name := range []string{
 		"song.kwm",
 		"song.qmc0",
@@ -20,9 +20,16 @@ func TestSupportedInputExtensionsIncludeV060Formats(t *testing.T) {
 		}
 	}
 
-	for _, name := range []string{"song.mflac", "song.mgg", "song.exe"} {
+	for _, name := range []string{"song.mflac", "song.mgg"} {
 		if containsInputExt(name) {
-			t.Errorf("containsInputExt(%q) = true", name)
+			t.Errorf("legacy containsInputExt(%q) = true", name)
 		}
+		if !(&ConvertHandler{supportsModernQMC: true}).containsLocalInputExt(name) {
+			t.Errorf("desktop containsLocalInputExt(%q) = false", name)
+		}
+	}
+
+	if containsInputExt("song.exe") {
+		t.Error("containsInputExt(\"song.exe\") = true")
 	}
 }

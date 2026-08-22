@@ -9,7 +9,7 @@
   "info": {
     "companyName": "Kugo Music Converter contributors",
     "productName": "Kugo Music Converter",
-    "productVersion": "0.6.0",
+    "productVersion": "0.6.1",
     "copyright": "Copyright (c) 2025-2026 Kugo Music Converter contributors",
     "comments": "GPL-3.0 licensed desktop audio converter; built with Wails"
   }

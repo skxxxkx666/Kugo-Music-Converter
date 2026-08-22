@@ -1,4 +1,23 @@
-﻿## Kugo Music Converter v0.6.0
+﻿## Kugo Music Converter v0.6.1
+
+> 状态：MFLAC/MGG 功能、QQ 音乐 22.52 真实样本和核心质量门禁已通过；正式四资产构建与发布待执行。
+
+- 新增旧式内嵌 ekey 与新版 `musicex` `.mflac/.mgg` 解密；
+- 修复 QQ 音乐未出现在“查找本机音乐”：在 Windows“音乐”已知文件夹下优先发现 `VipSongsDownload`，兼容目录重定向，并排除未完成的 `downloadproxyNew` 缓存；
+- `musicex` 每个转换批次从当前用户 QQ 音乐会话取得请求级 ekey，不上传音频内容或本地路径；
+- 会话优先读取 `SetCookie.dat/_SetCookie.dat` 中明确的 `authst` 字段，必要时以只读权限扫描同用户 QQMusic/qmbrowser 进程；
+- 取钥使用 QQ 音乐运营的未公开客户端兼容端点，不使用 DLL 注入、固定偏移、进程写权限或管理员权限；
+- 增加 60 秒批次预算、固定 HTTPS 主机、重定向拒绝、响应上限、逐文件错误隔离和异步预取；
+- 修复 KGG 混合批次全失败及并发数据库 key map 串用风险；
+- KGG MAP 解密改为保持原算法边界语义的周期查表，RC4 每个读取块复用工作区，降低大批量转换的计算与分配开销；
+- MP3 转码显式使用内嵌 FFmpeg 的 `libmp3lame`，转换设置补充兼容性、无损、未压缩、免重编码和 VBR 档位说明；
+- v0.6.0 已发布资产保持不变，v0.6.1 使用独立版本、Release 正文和 GitHub Actions 工作流。
+
+完整分析与验证见 `docs/2026-08-21_reverse-qqmusic-mflac-mgg-report.md`。
+
+---
+
+## Kugo Music Converter v0.6.0
 
 > 状态：四资产发布链、全部真实样本回归及 Windows 10/11 最终验收完成。当前稳定版本为 v0.6.0。
 
@@ -96,7 +115,7 @@ v0.6.0 是一次桌面化重大升级：项目从“HTA / BAT 启动本地 HTTP 
 - 补齐 ProductName、ProductVersion、CompanyName 等 PE 元数据；
 - v0.6.0 明确保持未签名，工作流要求状态为 `NotSigned` 并为两个便携 EXE、两个安装器分别生成 SHA-256；
 - GitHub Actions 仅处理 v0.6.0，生成四个验证后的资产，执行安装/卸载门禁并创建 draft Release；
-- SignPath Foundation 申请与 Authenticode 门禁延后到 v0.6.1 评估；
+- SignPath Foundation 申请与 Authenticode 门禁延后到后续版本；v0.6.1 已决定继续保持未签名；
 - 新增 FFmpeg 版本、哈希、构建配置、许可证和对应源代码说明；
 - 新增 WebView2 Fixed Runtime 版本、哈希、来源、许可证和首次解压权限处理；
 - 新增第三方组件通知文件。

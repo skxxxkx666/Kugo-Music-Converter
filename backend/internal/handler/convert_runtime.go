@@ -21,13 +21,21 @@ const (
 )
 
 func containsInputExt(name string) bool {
+	return containsExt(supportedInputExts, name)
+}
+
+func containsExt(extensions []string, name string) bool {
 	ext := strings.ToLower(filepath.Ext(name))
-	for _, item := range supportedInputExts {
+	for _, item := range extensions {
 		if ext == item {
 			return true
 		}
 	}
 	return false
+}
+
+func (h *ConvertHandler) containsLocalInputExt(name string) bool {
+	return containsInputExt(name) || (h != nil && h.supportsModernQMC && containsExt(modernQMCInputExts, name))
 }
 
 func normalizeConcurrency(raw int, fallback int) int {
@@ -223,6 +231,8 @@ func detectErrorCode(err error) string {
 		return ErrTranscodeFailed
 	case errors.Is(err, service.ErrMissingKGGKey):
 		return ErrDecryptKeyExpired
+	case errors.Is(err, service.ErrMissingQMCKey):
+		return ErrQMCKeyUnavailable
 	case errors.Is(err, service.ErrUnknownAudio), errors.Is(err, service.ErrDecryptProcess):
 		return ErrDecryptFailed
 	default:

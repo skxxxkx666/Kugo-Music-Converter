@@ -22,15 +22,17 @@ import (
 const maxDesktopFiles = 500
 
 var supportedDesktopExts = map[string]struct{}{
-	".kgg": {}, ".kgm": {}, ".kgma": {}, ".vpr": {}, ".ncm": {}, ".kwm": {},
+	".kgg": {}, ".kgm": {}, ".kgma": {}, ".vpr": {}, ".ncm": {}, ".kwm": {}, ".mflac": {}, ".mgg": {},
 	".qmc0": {}, ".qmc2": {}, ".qmc3": {}, ".qmc4": {}, ".qmc6": {}, ".qmc8": {},
 	".qmcflac": {}, ".qmcogg": {}, ".tkm": {},
 }
 
 var supportedDesktopExtList = []string{
-	".kgg", ".kgm", ".kgma", ".vpr", ".ncm", ".kwm",
+	".kgg", ".kgm", ".kgma", ".vpr", ".ncm", ".kwm", ".mflac", ".mgg",
 	".qmc0", ".qmc2", ".qmc3", ".qmc4", ".qmc6", ".qmc8", ".qmcflac", ".qmcogg", ".tkm",
 }
+
+const supportedDesktopFilePattern = "*.kgg;*.kgm;*.kgma;*.vpr;*.ncm;*.kwm;*.mflac;*.mgg;*.qmc0;*.qmc2;*.qmc3;*.qmc4;*.qmc6;*.qmc8;*.qmcflac;*.qmcogg;*.tkm"
 
 type StartupState struct {
 	Version            string   `json:"version"`
@@ -143,7 +145,7 @@ func (a *App) SelectAudioFiles() ([]SelectedFile, error) {
 	paths, err := wailsruntime.OpenMultipleFilesDialog(a.ctx, wailsruntime.OpenDialogOptions{
 		Title: "选择加密音频文件",
 		Filters: []wailsruntime.FileFilter{
-			{DisplayName: "支持的音频文件", Pattern: "*.kgg;*.kgm;*.kgma;*.vpr;*.ncm;*.kwm;*.qmc0;*.qmc2;*.qmc3;*.qmc4;*.qmc6;*.qmc8;*.qmcflac;*.qmcogg;*.tkm"},
+			{DisplayName: "支持的音频文件", Pattern: supportedDesktopFilePattern},
 		},
 	})
 	if err != nil {
@@ -315,7 +317,7 @@ func (a *App) prepareRuntime() {
 	cfg := config.DefaultConfig()
 	cfg.FFmpegBin = result.Path
 	cfg.DefaultOutput = a.GetStartupState().DefaultOutputDir
-	converter := handler.NewConvertHandler(cfg, a.version)
+	converter := handler.NewDesktopConvertHandler(cfg, a.version)
 	dbStatus := converter.DatabaseStatus()
 
 	a.mu.Lock()

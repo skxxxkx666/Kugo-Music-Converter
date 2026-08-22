@@ -6,7 +6,7 @@
 
 **一键批量解密酷狗、网易云、酷我、QQ 音乐的加密音频，转换为 MP3 / FLAC / WAV**
 
-解密和转码全部在你的电脑上完成，音频文件不会发送到网络
+解密和转码全部在你的电脑上完成，音频文件不会发送到网络；新版 MFLAC/MGG 每个转换批次会连接 QQ 音乐兼容端点取钥
 
 [![Release](https://img.shields.io/github/v/release/skxxxkx666/Kugo-Music-Converter?label=Release&color=blue)](https://github.com/skxxxkx666/Kugo-Music-Converter/releases/latest)
 [![License](https://img.shields.io/github/license/skxxxkx666/Kugo-Music-Converter?label=License&color=green)](COPYING)
@@ -20,7 +20,7 @@
 
 </div>
 
-支持把酷狗 **KGG / KGM / KGMA / VPR**、网易云 **NCM**、酷我 **KWM** 以及传统 QQ 音乐 **QMC** 系列转换为 MP3、FLAC、WAV 或原始音频格式。
+支持把酷狗 **KGG / KGM / KGMA / VPR**、网易云 **NCM**、酷我 **KWM**、QQ 音乐 **MFLAC / MGG** 以及传统 **QMC** 系列转换为 MP3、FLAC、WAV 或原始音频格式。
 
 ## 推广
 
@@ -42,13 +42,14 @@
 | 版本 | 状态 | 使用方式 |
 |---|---|---|
 | v0.5.1 | 历史稳定版 | 解压 ZIP，使用 `start.hta` 或 `start.bat` |
-| v0.6.0 | 当前稳定版，全部发布验收已完成 | 安装器（推荐）或便携 EXE |
+| v0.6.0 | 当前已发布稳定版 | 安装器（推荐）或便携 EXE |
+| v0.6.1 | 本分支待发布：新增 MFLAC/MGG | 预期安装器或便携 EXE |
 
-> v0.6.0 按当前决策保持未签名，并为每个正式 EXE 和安装器提供 SHA-256；SignPath Foundation 延后到 v0.6.1 评估。
+> v0.6.0 与 v0.6.1 均保持未签名，并为每个正式 EXE 和安装器提供 SHA-256；v0.6.1 不接入 SignPath Foundation。
 
 ## 下载当前稳定版
 
-**当前稳定版本：v0.6.0**
+**当前已发布稳定版本：v0.6.0；本分支版本：v0.6.1（待发布）**
 
 | 文件 | 平台 | 说明 |
 |---|---|---|
@@ -57,7 +58,16 @@
 | [Kugo-Music-Converter-v0.6.0-windows-amd64-webview2-setup.exe](https://github.com/skxxxkx666/Kugo-Music-Converter/releases/download/v0.6.0/Kugo-Music-Converter-v0.6.0-windows-amd64-webview2-setup.exe) | Windows x64 | 内置 WebView2 安装器，体积较大 |
 | [Kugo-Music-Converter-v0.6.0-windows-amd64-webview2.exe](https://github.com/skxxxkx666/Kugo-Music-Converter/releases/download/v0.6.0/Kugo-Music-Converter-v0.6.0-windows-amd64-webview2.exe) | Windows x64 | 内置 WebView2 便携版，体积较大 |
 
-更多版本请前往 [GitHub Releases](https://github.com/skxxxkx666/Kugo-Music-Converter/releases)。
+v0.6.1 预期发布资产名：
+
+```text
+Kugo-Music-Converter-v0.6.1-windows-amd64.exe
+Kugo-Music-Converter-v0.6.1-windows-amd64-webview2.exe
+Kugo-Music-Converter-v0.6.1-windows-amd64-setup.exe
+Kugo-Music-Converter-v0.6.1-windows-amd64-webview2-setup.exe
+```
+
+更多已发布版本请前往 [GitHub Releases](https://github.com/skxxxkx666/Kugo-Music-Converter/releases)。
 
 ## v0.6.0 做了什么
 
@@ -95,7 +105,7 @@ v0.6.0：
 - 原生多文件选择、目录递归扫描、文件和文件夹拖放；
 - 队列行选中、双击试听、右键上下文菜单、单项移除和全部清空；
 - 键盘快捷键：`Ctrl+O` 选择文件、`Enter` 开始转换、`Esc` 取消、`Delete` 移除选中项；
-- 查找本机音乐：读取酷狗自定义下载配置并检测酷狗 / 网易云 / 酷我 / QQ 音乐常见下载目录，按软件分组显示真实品牌图标，支持分组全选、整行点选、结果区折叠（不遍历全盘、不修改源文件）。
+- 查找本机音乐：读取酷狗自定义下载配置并检测酷狗 / 网易云 / 酷我 / QQ 音乐常见下载目录；QQ 音乐会优先扫描 Windows“音乐”已知文件夹下的 `VipSongsDownload`，兼容“音乐”目录重定向；结果按软件分组显示真实品牌图标，支持分组全选、整行点选、结果区折叠（不遍历全盘、不修改源文件，也不把 QQ `downloadproxyNew` 临时缓存当成完成下载）。
 
 **原生桌面体验**
 
@@ -143,7 +153,7 @@ v0.6.0：
 
 ### 转换
 
-- KGG、KGM、KGMA、VPR、NCM、KWM 和传统 QMC 批量解密；
+- KGG、KGM、KGMA、VPR、NCM、KWM、MFLAC、MGG 和传统 QMC 批量解密；
 - MP3、FLAC、WAV 转码；
 - 保持原格式的 Copy 模式；
 - 并发转换；
@@ -184,6 +194,7 @@ v0.6.0：
 | `.vpr` | 酷狗 VIP | 不需要 |
 | `.ncm` | 网易云音乐 | 不需要 |
 | `.kwm` | 酷我音乐 | 不需要 |
+| `.mflac/.mgg` | QQ 音乐（QMC2） | 旧式内嵌 ekey 文件离线解密；`musicex` 新版文件每个转换批次需要已登录 QQ 音乐 PC 客户端和网络 |
 | `.qmc0/.qmc2/.qmc3/.qmc4/.qmc6/.qmc8` | QQ 音乐（传统 QMC） | 不需要 |
 | `.qmcflac/.qmcogg/.tkm` | QQ 音乐（传统 QMC） | 不需要 |
 
@@ -213,12 +224,12 @@ v0.6.0：
 
 > v0.5.1 依赖本地 HTTP 服务。请勿直接打开 `public/index.html`，否则页面无法连接后端。
 
-## v0.6.0 开发构建
+## v0.6.1 开发构建
 
 ### 前置条件
 
 - Go 1.26；
-- Wails CLI v2；
+- Wails CLI v2.14.0；
 - Windows WebView2 Runtime；
 - NSIS 3（用于生成按用户安装器）。
 
@@ -226,7 +237,7 @@ v0.6.0：
 
 ```powershell
 cd backend
-wails build -trimpath -o Kugo-Music-Converter-v0.6.0-dev.exe
+wails build -trimpath -o Kugo-Music-Converter-v0.6.1-dev.exe
 ```
 
 该构建不嵌入 FFmpeg，只适合界面和绑定开发。
@@ -240,13 +251,13 @@ wails build -trimpath -o Kugo-Music-Converter-v0.6.0-dev.exe
 脚本会获取并校验固定版本的 FFmpeg 与 WebView2 载荷，运行完整测试，分别生成标准版和内置 WebView2 版，并校验 PE 元数据、体积差异和未签名状态。输出位于：
 
 ```text
-dist/release/Kugo-Music-Converter-v0.6.0-windows-amd64.exe
-dist/release/Kugo-Music-Converter-v0.6.0-windows-amd64-webview2.exe
-dist/release/Kugo-Music-Converter-v0.6.0-windows-amd64-setup.exe
-dist/release/Kugo-Music-Converter-v0.6.0-windows-amd64-webview2-setup.exe
+dist/release/Kugo-Music-Converter-v0.6.1-windows-amd64.exe
+dist/release/Kugo-Music-Converter-v0.6.1-windows-amd64-webview2.exe
+dist/release/Kugo-Music-Converter-v0.6.1-windows-amd64-setup.exe
+dist/release/Kugo-Music-Converter-v0.6.1-windows-amd64-webview2-setup.exe
 ```
 
-两个便携 EXE 和两个按用户安装器均内嵌 FFmpeg；安装器默认写入 `%LOCALAPPDATA%\Programs\Kugo Music Converter`，不要求管理员权限。内置 WebView2 变体还携带 Fixed Runtime `151.0.4129.93`，因此体积显著更大。v0.6.0 明确保持未签名，发布时必须同时上传各自的 `.sha256` 文件；签名计划见 [SIGNING.md](SIGNING.md)。
+两个便携 EXE 和两个按用户安装器均内嵌 FFmpeg；安装器默认写入 `%LOCALAPPDATA%\Programs\Kugo Music Converter`，不要求管理员权限。内置 WebView2 变体还携带 Fixed Runtime `151.0.4129.93`，因此体积显著更大。当前 v0.6.1 发布链保持未签名并要求各资产 SHA-256；本版本不接入 SignPath Foundation，详见 [SIGNING.md](SIGNING.md)。
 
 ### 测试
 
@@ -270,10 +281,20 @@ KGG 文件需要酷狗客户端的 `KGMusicV3.db`。常见路径：
 
 如果新下载的 KGG 文件解密失败，通常是数据库尚未包含最新歌曲密钥。请先在酷狗客户端播放一次歌曲，再重新加载最新数据库。
 
+## MFLAC / MGG 说明
+
+旧式、文件尾部内嵌 ekey 的 `.mflac/.mgg` 可直接离线解密。新版 `musicex` 文件不再携带 ekey：转换时需要启动 QQ 音乐 PC 客户端，并登录下载该文件且仍具备资源权限的账号。程序读取当前用户 QQ 音乐 `SetCookie.dat/_SetCookie.dat` 中明确的 `authst` 字段；文件中没有可用字段时，以查询和内存读取权限扫描同用户 `QQMusic.exe/qmbrowser.exe` 的可读内存。随后使用文件尾部的 `media_mid` 和资源名向 QQ 音乐运营的 `u.y.qq.com` 未公开兼容端点请求 ekey。音频内容、本地路径、历史和日志不会发送，登录会话与 ekey 不写入配置、历史或日志。
+
+部分新版 MFLAC 的 raw 解密流在已声明时长结束后带一个残缺 FLAC 包。Copy 模式会使用内嵌 FFmpeg 严格校验；检测到该模式时自动无损重建 FLAC 并再次严格复验。MGG Copy 保持原始 OGG。
+
+QQ 音乐未运行、未登录、会话过期、账号无资源权限或网络不可用时，仅对应的新版 MFLAC/MGG 项失败，同批次其他格式继续转换。
+
 ## 隐私和网络
 
 - 音频解密和转码在本机完成；
-- 文件不会发送到云端；
+- 音频文件不会发送到云端；
+- 只有无内嵌 ekey 的新版 MFLAC/MGG 会连接 QQ 音乐运营的未公开兼容端点，发送当前 QQ 音乐会话、账号标识、`media_mid` 和资源文件名以取得该资源的 ekey；
+- QQ 音乐会话和 ekey 只在本次转换的 Go 后端内存中使用，不进入 WebView、本机历史、配置、CSV 或诊断日志；
 - v0.6.0 转换进程不监听 TCP 端口；
 - v0.5.1 只监听本机 `localhost`；
 - 检查更新会访问 GitHub Release API 或预设镜像；只有用户确认自动更新后，程序才会从官方 GitHub Release 下载安装器和 SHA-256。
@@ -282,12 +303,14 @@ KGG 文件需要酷狗客户端的 `KGMusicV3.db`。常见路径：
 
 | 问题 | 处理方式 |
 |---|---|
+| MFLAC/MGG 转换提示未登录或会话过期 | 启动 QQ 音乐 PC 客户端并登录下载该文件的账号；新版 `musicex` 文件每个转换批次都需要联网取钥 |
+| MFLAC/MGG 提示账号无权取得密钥 | 确认当前账号仍具备该资源权限，必要时在 QQ 音乐客户端重新下载文件 |
 | KGG 转换失败 | 检查 `KGMusicV3.db`，在酷狗客户端播放歌曲后重新检测 |
 | v0.6.0 提示运行时未就绪 | 确认使用带 `runtimebundle` 的正式构建，而不是开发构建 |
 | 标准版无法显示窗口 | 安装 Microsoft Edge WebView2 Runtime，或改用内置 WebView2 版 |
 | 内置 WebView2 版第一次启动较慢 | EXE 约 339 MiB，首次启动需解压约 661 MiB 的 Fixed Runtime 缓存，后续会复用 |
 | v0.6.0 第一次启动稍慢 | 首次启动需要解压和校验内嵌 FFmpeg |
-| Windows 显示“未知发布者” | v0.6.0 按决策未签名；仅从本仓库 Releases 下载并核对 SHA-256 |
+| Windows 显示“未知发布者” | v0.6.0 与 v0.6.1 按决策未签名；仅从本仓库 Releases 下载并核对 SHA-256 |
 | v0.6.0 设置或历史消失 | WebView 本机应用数据被清理后，设置和历史会重置 |
 | v0.5.1 页面无法连接后端 | 必须通过 `start.hta` 或 `start.bat` 启动完整链路 |
 | Windows 7 无法运行 | v0.6.0 不支持 Windows 7 |
@@ -318,8 +341,8 @@ Kugo-Music-Converter-Modpacks/
 ├── RELEASE-BODY-v0.6.0.md         # v0.6.0 Release 正文
 ├── build-release.ps1              # v0.6.0 标准版 / 内置 WebView2 版构建与门禁
 ├── verify-release.ps1             # PE 元数据、Authenticode、时间戳与哈希验证
-├── SIGNING.md                      # v0.6.0 未签名决策与 v0.6.1 SignPath 评估
-├── SIGNING-POLICY.md               # v0.6.1 起的拟议签名政策
+├── SIGNING.md                      # v0.6.0 / v0.6.1 未签名决策
+├── SIGNING-POLICY.md               # 未启用的未来签名政策草案
 ├── PRIVACY.md / SECURITY.md        # 隐私和安全报告政策
 ├── THIRD-PARTY-NOTICES.md          # 第三方组件与许可证说明
 ├── FFMPEG-SOURCE.md                # 内嵌 FFmpeg 来源、配置和对应源代码
@@ -327,15 +350,10 @@ Kugo-Music-Converter-Modpacks/
 └── COPYING
 ```
 
-## 当前迁移状态
+## 当前分支状态
 
-v0.6.0 桌面功能、扩展格式、单 EXE 发布链和发布验收已经完成：
-
-- 真实样本回归已覆盖 KGG、KGM、KGMA、VPR、NCM、KWM、传统 QMC 与 KGG V2；
-- Windows 10/11 最终验收、标准版与内置 WebView2 版启动、转换、安装和卸载均已完成；
-- 两个便携 EXE、两个按用户安装器、各自 SHA-256、PE 元数据和运行时自检均已通过；
-- 当前仅剩创建 v0.6.0 tag、运行 GitHub 发布工作流并发布 Release。
+v0.6.0 已发布。v0.6.1 分支已完成 MFLAC/MGG 实现与本机 QQ 音乐 22.52 真实样本验证；待完成正式四资产构建、干净机安装验收、提交、标签和 Release 发布。
 
 ## 许可证
 
-本项目基于 [GNU General Public License v3.0](COPYING) 发布。第三方组件、内嵌 FFmpeg 与 WebView2 来源见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)、[FFMPEG-SOURCE.md](FFMPEG-SOURCE.md) 与 [WEBVIEW2-SOURCE.md](WEBVIEW2-SOURCE.md)。隐私、安全和签名计划见 [PRIVACY.md](PRIVACY.md)、[SECURITY.md](SECURITY.md) 与 [SIGNING.md](SIGNING.md)。
+本项目基于 [GNU General Public License v3.0](COPYING) 发布。第三方组件、内嵌 FFmpeg 与 WebView2 来源见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)、[FFMPEG-SOURCE.md](FFMPEG-SOURCE.md) 与 [WEBVIEW2-SOURCE.md](WEBVIEW2-SOURCE.md)。隐私、安全和当前未签名状态见 [PRIVACY.md](PRIVACY.md)、[SECURITY.md](SECURITY.md) 与 [SIGNING.md](SIGNING.md)。

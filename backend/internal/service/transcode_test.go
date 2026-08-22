@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -95,6 +96,23 @@ func TestIsOGGCRCError(t *testing.T) {
 	}
 	if IsOGGCRCError("invalid data found when processing input") {
 		t.Fatal("did not expect generic error to be recognized as ogg crc")
+	}
+}
+
+func TestAppendFFmpegOutputArgsUsesExplicitEncoders(t *testing.T) {
+	tests := []struct {
+		format string
+		want   []string
+	}{
+		{format: "mp3", want: []string{"-c:a", "libmp3lame", "-q:a", "2", "out.mp3"}},
+		{format: "flac", want: []string{"-c:a", "flac", "out.mp3"}},
+		{format: "wav", want: []string{"-c:a", "pcm_s16le", "out.mp3"}},
+	}
+	for _, tc := range tests {
+		got := appendFFmpegOutputArgs(nil, "out.mp3", tc.format, 2)
+		if !slices.Equal(got, tc.want) {
+			t.Errorf("format %s args = %v, want %v", tc.format, got, tc.want)
+		}
 	}
 }
 

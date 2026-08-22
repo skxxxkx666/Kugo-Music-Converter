@@ -136,10 +136,10 @@ const preferencesStorageKey = "kugo-desktop-preferences-v1";
 const updateCheckStorageKey = "kugo-desktop-update-check-v1";
 const ignoredUpdateStorageKey = "kugo-desktop-ignored-update-v1";
 const themeStorageKey = "kugo-desktop-theme";
-const disclaimerStorageKey = "kugo-desktop-disclaimer-v1";
+const disclaimerStorageKey = "kugo-desktop-disclaimer-v2";
 const updateCheckInterval = 24 * 60 * 60 * 1000;
 const encryptedExtensions = new Set([
-  ".kgg", ".kgm", ".kgma", ".vpr", ".ncm", ".kwm",
+  ".kgg", ".kgm", ".kgma", ".vpr", ".ncm", ".kwm", ".mflac", ".mgg",
   ".qmc0", ".qmc2", ".qmc3", ".qmc4", ".qmc6", ".qmc8", ".qmcflac", ".qmcogg", ".tkm"
 ]);
 
@@ -150,6 +150,8 @@ const extBadgeStyles = {
   ".vpr": ["ext-vpr", "i-file-audio"],
   ".ncm": ["ext-ncm", "i-disc"],
   ".kwm": ["ext-kwm", "i-music"],
+  ".mflac": ["ext-qmc", "i-lock"],
+  ".mgg": ["ext-qmc", "i-lock"],
   ".qmc0": ["ext-qmc", "i-lock"],
   ".qmc2": ["ext-qmc", "i-lock"],
   ".qmc3": ["ext-qmc", "i-lock"],
@@ -163,6 +165,7 @@ const extBadgeStyles = {
 
 const phaseLabels = {
   prepare: "准备文件",
+  key: "获取 QQ 音乐密钥",
   decrypt: "解密音频",
   transcode: "生成输出"
 };
@@ -365,7 +368,7 @@ function syncControls() {
     ? state.cancelRequested
       ? "正在停止当前任务，请等待已启动的文件处理结束。"
       : "转换期间可以取消；已生成的成功文件会保留。"
-    : disabledReason || "所有文件将直接在本机处理，不会发送到网络。";
+    : disabledReason || "音频文件仅在本机处理；新版 MFLAC/MGG 每批会连接 QQ 音乐兼容端点取钥。";
   elements.pickFilesButton.disabled = inputLocked;
   elements.scanFolderButton.disabled = inputLocked;
   elements.findMusicButton.disabled = inputLocked;

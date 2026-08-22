@@ -2,7 +2,7 @@
 
 Last updated: 2026-08-18
 
-This is a proposed policy for v0.6.1 and later. It is not active for v0.6.0, which is intentionally unsigned and distributed with published SHA-256 checksums.
+This is a proposed policy for a future release. It is not active for v0.6.0 or v0.6.1, which are intentionally unsigned and distributed with published SHA-256 checksums.
 
 ## Proposed scope
 
@@ -34,4 +34,4 @@ If a signing credential, workflow or signed artifact is suspected to be compromi
 - preserve workflow and signing-request records;
 - publish a security notice and a clean replacement after containment.
 
-The v0.6.1 evaluation and setup notes are in [`SIGNING.md`](SIGNING.md).
+The current unsigned release status and optional future setup notes are in [`SIGNING.md`](SIGNING.md).

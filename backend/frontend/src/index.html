@@ -32,7 +32,7 @@
             <svg class="icon" aria-hidden="true"><use href="#i-refresh-cw" /></svg>
             <span class="btn-label">检查更新</span>
           </button>
-          <span id="versionBadge" class="version-badge">v0.6.0</span>
+          <span id="versionBadge" class="version-badge">v0.6.1</span>
           <span id="runtimeBadge" class="status-badge" data-state="checking">检查运行时</span>
           <button id="themeToggleButton" class="theme-toggle" type="button" aria-label="切换深浅色主题" aria-pressed="false">
             <svg class="icon icon-moon" aria-hidden="true"><use href="#i-moon" /></svg>
@@ -236,19 +236,19 @@
           <div class="settings-fields">
           <label class="field-label" for="formatSelect">输出格式</label>
           <select id="formatSelect" class="field-control">
-            <option value="mp3">MP3（推荐）</option>
-            <option value="flac">FLAC</option>
-            <option value="wav">WAV</option>
-            <option value="copy">保持原格式</option>
+            <option value="mp3">MP3（兼容性优先）</option>
+            <option value="flac">FLAC（无损）</option>
+            <option value="wav">WAV（未压缩）</option>
+            <option value="copy">原格式（不重新编码）</option>
           </select>
 
           <div id="qualityField">
             <label class="field-label" for="qualitySelect">MP3 音质</label>
             <select id="qualitySelect" class="field-control">
-              <option value="0">最高质量</option>
-              <option value="2" selected>高质量（推荐）</option>
-              <option value="5">平衡</option>
-              <option value="7">较小文件</option>
+              <option value="0">V0 最高音质（约 245 kbps）</option>
+              <option value="2" selected>V2 高音质（约 190 kbps，默认）</option>
+              <option value="5">V5 标准（约 130 kbps）</option>
+              <option value="7">V7 节省空间（约 100 kbps）</option>
             </select>
           </div>
 
@@ -374,7 +374,7 @@
                 <span>文件类型</span>
                 <select id="advancedFilter" class="field-control">
                   <option value="">全部文件</option>
-                  <option value=".kgg,.kgm,.kgma,.vpr,.ncm,.kwm,.qmc0,.qmc2,.qmc3,.qmc4,.qmc6,.qmc8,.qmcflac,.qmcogg,.tkm">可转换的加密音频</option>
+                  <option value=".kgg,.kgm,.kgma,.vpr,.ncm,.kwm,.mflac,.mgg,.qmc0,.qmc2,.qmc3,.qmc4,.qmc6,.qmc8,.qmcflac,.qmcogg,.tkm">可转换的加密音频</option>
                   <option value=".mp3,.flac,.wav,.m4a,.aac,.ogg,.opus,.wma">常见音频</option>
                   <option value="custom">自定义扩展名</option>
                 </select>
@@ -463,7 +463,7 @@
         <div id="firstRunDesc" class="first-run-content">
           <p>本软件是<strong>免费开源项目</strong>，源代码公开于 GitHub。</p>
           <p>请勿在任何第三方平台<strong>付费购买</strong>本软件。如果您是通过付费渠道获得本软件，请立即向出售方申请退款。</p>
-          <p class="first-run-note">本软件仅供学习交流，音频解密与转换均在您本机完成，文件不会发送到网络。</p>
+          <p class="first-run-note">音频解密与转换均在本机完成，音频文件不会发送到网络。无内嵌密钥的新版 MFLAC/MGG 会读取当前用户 QQ 音乐会话文件中的授权字段；必要时以只读权限扫描同用户 QQMusic/qmbrowser 进程内存，再通过 QQ 音乐运营的未公开兼容端点获取该资源密钥。</p>
         </div>
         <div class="first-run-actions">
           <button id="firstRunConfirm" class="button button-convert" type="button">

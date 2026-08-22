@@ -104,7 +104,7 @@ func (h *ConvertHandler) buildLocalConvertRequest(input LocalConversionRequest) 
 		if err != nil || !info.Mode().IsRegular() {
 			return nil, NewAppError(ErrInputPathDenied, fmt.Sprintf("文件不存在或不可读取: %s", path), err)
 		}
-		if !containsInputExt(info.Name()) {
+		if !h.containsLocalInputExt(info.Name()) {
 			return nil, NewAppError(ErrUnsupportedFormat, fmt.Sprintf("不支持的格式: %s", filepath.Ext(info.Name())), nil)
 		}
 		if info.Size() > h.cfg.MaxFileSize {

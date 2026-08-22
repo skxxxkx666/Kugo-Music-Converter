@@ -1,16 +1,16 @@
 # Backend - Go 后端
 
-## v0.6.0 桌面端架构
+## v0.6.1 桌面端架构
 
-v0.6.0 使用 Wails v2 将 Go 后端与前端直接打包为 Windows 桌面 EXE。桌面应用支持文件与文件夹拖放、队列管理、设置持久化、批量转换、进度与 ETA、任务取消、失败恢复、试听与定位、历史、目录扫描、诊断、显式自动更新和运行时缓存清理。Windows 原生集成包含单实例、任务栏进度、完成通知和关窗确认。
+v0.6.1 延续 Wails v2 单 EXE 架构，并新增 MFLAC/MGG 与请求级 QQ 音乐取钥。桌面应用支持文件与文件夹拖放、队列管理、设置持久化、批量转换、进度与 ETA、任务取消、失败恢复、试听与定位、历史、目录扫描、诊断、显式自动更新和运行时缓存清理。Windows 原生集成包含单实例、任务栏进度、完成通知和关窗确认。
 
-当前稳定版本为 v0.6.0。标准版和内置 WebView2 版分别提供便携 EXE 与按用户安装器，共四个未签名资产并分别发布 SHA-256；SignPath 延后到 v0.6.1 评估。
+当前已发布稳定版本为 v0.6.0，本分支版本为 v0.6.1（待发布）。v0.6.1 发布链继续生成标准版和内置 WebView2 版的便携 EXE 与按用户安装器，保持未签名并分别生成 SHA-256；本版本不接入 SignPath Foundation。
 
 ```powershell
 cd backend
 
 # 开发构建（不嵌入 FFmpeg）
-wails build -trimpath -o Kugo-Music-Converter-v0.6.0-dev.exe
+wails build -trimpath -o Kugo-Music-Converter-v0.6.1-dev.exe
 
 # 正式候选构建（从仓库根目录执行）
 cd ..
@@ -109,7 +109,7 @@ backend/
 
 - Windows 10 / 11 x64；
 - Go 1.26；
-- Wails CLI v2；
+- Wails CLI v2.14.0；
 - NSIS 3；
 - Microsoft Edge WebView2 Runtime；
 - 正式构建需要联网获取已固定哈希的 FFmpeg 与 WebView2 载荷，已有校验通过的本机载荷会直接复用。
@@ -118,7 +118,7 @@ backend/
 
 ```powershell
 cd backend
-wails build -trimpath -o Kugo-Music-Converter-v0.6.0-dev.exe
+wails build -trimpath -o Kugo-Music-Converter-v0.6.1-dev.exe
 ```
 
 不带 `runtimebundle` 标签的构建不会嵌入 FFmpeg，应用会明确显示“开发构建未嵌入 FFmpeg”。
@@ -137,7 +137,7 @@ cd ..
 - `Kugo-Music-Converter-v0.6.0-windows-amd64-setup.exe`：标准版按用户安装器（推荐）；
 - `Kugo-Music-Converter-v0.6.0-windows-amd64-webview2-setup.exe`：内置 Fixed Runtime 按用户安装器。
 
-发布脚本强制为两个版本嵌入 FFmpeg，并只为第二个版本启用 `webview2bundle`。脚本验证 PE 元数据、两版体积差、未签名状态、SHA-256 和无界面运行时自检。安装器默认写入 `%LOCALAPPDATA%\Programs\Kugo Music Converter`，不要求管理员权限。`test-clean-install.ps1` 在干净测试机执行安装、自检、卸载和无残留门禁。v0.6.0 不经过 SignPath；`verify-release.ps1 -RequireSignature` 保留给 v0.6.1。
+发布脚本强制为两个版本嵌入 FFmpeg，并只为第二个版本启用 `webview2bundle`。脚本验证 PE 元数据、两版体积差、未签名状态、SHA-256 和无界面运行时自检。安装器默认写入 `%LOCALAPPDATA%\Programs\Kugo Music Converter`，不要求管理员权限。`test-clean-install.ps1` 在干净测试机执行安装、自检、卸载和无残留门禁。v0.6.0 与 v0.6.1 均不经过 SignPath；`verify-release.ps1 -RequireSignature` 仅保留给可能启用签名的未来版本。
 
 ### 2.4 测试
 
@@ -303,7 +303,18 @@ $env:KGG_DB="...\KGMusicV3.db"; $env:KGG_FILE="...\song.kgg"
 go test ./internal/algo/kgg/ -run "TestOracleRealFileRegression|TestLoadKGDatabaseKeyMap" -v
 ```
 
-桌面本地转换核心的真实文件测试同样由环境变量门控，默认 Copy；设置 `KUGO_TEST_OUTPUT_FORMAT=wav` 可强制覆盖 FFmpeg 转码路径：
+`internal/algo/qmcfile` 负责识别 legacy / QTag / STag / `musicex` 尾部，并为 `musicex` 构造只读取加密音频负载的有界 QMC2 流；`internal/qmckey` 只在 Windows amd64 桌面路径读取当前用户 QQ 音乐会话：优先解析 `SetCookie.dat/_SetCookie.dat` 中明确的 `authst` 字段，必要时以只读权限扫描同用户、QQMusic 安装目录下的 `QQMusic.exe/qmbrowser.exe`，再通过 QQ 音乐运营的未公开 GetEVkey 兼容端点获取请求级 ekey。会话和 ekey 不进入 WebView、配置、历史或日志。旧 `cmd/server` 构造器不启用该能力。
+
+新版 QMC 真实文件测试需要 QQ 音乐 PC 客户端已运行并登录下载文件的账号：
+
+```powershell
+$env:KUGO_TEST_INPUT="...\sample.mflac" # 或 sample.mgg
+$env:KUGO_TEST_FFMPEG="...\ffmpeg.exe"
+$env:KUGO_TEST_OUTPUT_FORMAT="copy"
+go test ./internal/handler -run '^TestConvertLocalPathsRealFile$' -count=1 -v
+```
+
+桌面本地转换核心的其他真实文件测试同样由环境变量门控，默认 Copy；设置 `KUGO_TEST_OUTPUT_FORMAT=wav` 可强制覆盖 FFmpeg 转码路径：
 
 ```powershell
 $env:KUGO_TEST_INPUT="...\sample.kgma"

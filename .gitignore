@@ -47,6 +47,8 @@ backend/vendor/
 # Public release documentation
 docs/*
 !docs/release-notes.md
+!docs/2026-08-21_reverse-qqmusic-mflac-mgg-report.md
+!docs/2026-08-22_v0.6.1-mflac-mgg-final.md
 !docs/releases/
 !docs/releases/**
 
@@ -70,6 +72,7 @@ TEST.html
 
 # Local cloud test environment documentation
 /ALEX-Windows-开发环境使用手册.md
+/2026-08-22_v0.6.1-mflac-mgg-final.md
 
 # Conversion logs
 转换日志*.txt
