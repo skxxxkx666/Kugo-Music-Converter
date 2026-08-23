@@ -1,6 +1,6 @@
 # Privacy policy
 
-Last updated: 2026-08-21
+Last updated: 2026-08-23
 
 Kugo Music Converter is a local desktop application. It does not operate an account service and does not collect analytics or telemetry.
 
@@ -20,7 +20,7 @@ Users control and may delete their output files, local application data, exporte
 
 ## Network access
 
-Conversion does not start a local HTTP server. Most supported formats are converted without network access. Modern QQ Music `.mflac` and `.mgg` files without an embedded ekey require an HTTPS request to the QQ-operated `u.y.qq.com` compatibility endpoint as described above. The optional update check sends a standard HTTPS request to the GitHub Releases API or a configured release mirror. It transmits the current application version and normal network metadata required for the request, but no music file, key database, conversion history or diagnostic log.
+Conversion does not start a local HTTP server. Most supported formats are converted without network access. Modern QQ Music `.mflac` and `.mgg` files without an embedded ekey require an HTTPS request to the QQ-operated `u.y.qq.com` compatibility endpoint as described above. The optional update check sends a standard HTTPS request to the GitHub Releases API or a configured release mirror. After the user confirms an update, the installer and checksum are downloaded from the official GitHub Release; if the direct download fails, the application may request the same official URLs through the third-party transport fallback `gh.h233.eu.org`. These requests transmit the current application version and normal network metadata required for the request, but no music file, key database, conversion history or diagnostic log.
 
 GitHub processes network metadata according to its own privacy statement: <https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement>.
 

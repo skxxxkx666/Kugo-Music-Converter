@@ -3,8 +3,11 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"kugo-music-converter/internal/handler"
@@ -58,6 +61,85 @@ func TestParseAndMatchUpdateSHA256(t *testing.T) {
 	if _, err := parseUpdateSHA256([]byte(hash+"  other.exe\n"), "update.exe"); err == nil {
 		t.Fatal("checksum for a different filename was accepted")
 	}
+}
+
+func TestDownloadOfficialReleaseAssetFallsBackAfterGitHubFailure(t *testing.T) {
+	originalTransport := http.DefaultTransport
+	t.Cleanup(func() { http.DefaultTransport = originalTransport })
+
+	attemptedURLs := make([]string, 0, 2)
+	http.DefaultTransport = roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		attemptedURLs = append(attemptedURLs, request.URL.String())
+		status := http.StatusServiceUnavailable
+		body := "GitHub unavailable"
+		if request.URL.Hostname() == "gh.h233.eu.org" {
+			status = http.StatusOK
+			body = "verified fallback asset"
+		}
+		return &http.Response{
+			StatusCode:    status,
+			Body:          io.NopCloser(strings.NewReader(body)),
+			ContentLength: int64(len(body)),
+			Header:        make(http.Header),
+			Request:       request,
+		}, nil
+	})
+
+	assetName := "Kugo-Music-Converter-v0.6.0-windows-amd64-setup.exe"
+	destination := filepath.Join(t.TempDir(), assetName)
+	err := downloadOfficialReleaseAsset(t.Context(), handler.ReleaseAsset{
+		Name:        assetName,
+		DownloadURL: officialAssetURL(assetName),
+		Size:        100,
+	}, destination, 1024)
+	if err != nil {
+		t.Fatalf("downloadOfficialReleaseAsset() error = %v", err)
+	}
+	if len(attemptedURLs) != 2 || attemptedURLs[0] != officialAssetURL(assetName) || attemptedURLs[1] != updateDownloadProxyBase+officialAssetURL(assetName) {
+		t.Fatalf("attempted URLs = %#v, want GitHub then fallback", attemptedURLs)
+	}
+	data, err := os.ReadFile(destination)
+	if err != nil || string(data) != "verified fallback asset" {
+		t.Fatalf("downloaded data = %q, %v", data, err)
+	}
+}
+
+func TestDownloadOfficialReleaseAssetStopsAfterGitHubSuccess(t *testing.T) {
+	originalTransport := http.DefaultTransport
+	t.Cleanup(func() { http.DefaultTransport = originalTransport })
+
+	attemptedHosts := make([]string, 0, 1)
+	http.DefaultTransport = roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		attemptedHosts = append(attemptedHosts, request.URL.Hostname())
+		body := "official GitHub asset"
+		return &http.Response{
+			StatusCode:    http.StatusOK,
+			Body:          io.NopCloser(strings.NewReader(body)),
+			ContentLength: int64(len(body)),
+			Header:        make(http.Header),
+			Request:       request,
+		}, nil
+	})
+
+	assetName := "Kugo-Music-Converter-v0.6.0-windows-amd64-setup.exe"
+	destination := filepath.Join(t.TempDir(), assetName)
+	err := downloadOfficialReleaseAsset(t.Context(), handler.ReleaseAsset{
+		Name:        assetName,
+		DownloadURL: officialAssetURL(assetName),
+		Size:        100,
+	}, destination, 1024)
+	if err != nil {
+		t.Fatalf("downloadOfficialReleaseAsset() error = %v", err)
+	}
+	if got := strings.Join(attemptedHosts, ","); got != "github.com" {
+		t.Fatalf("attempted hosts = %q, want GitHub only", got)
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return f(request)
 }
 
 func officialAssetURL(name string) string {

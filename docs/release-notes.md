@@ -1,9 +1,9 @@
 ﻿## Kugo Music Converter v0.6.1
 
-> 状态：MFLAC/MGG 功能、QQ 音乐 22.52 真实样本和核心质量门禁已通过；正式四资产构建与发布待执行。
+> 状态：MFLAC/MGG 功能、QQ 音乐 22.52 真实样本、核心质量门禁和四资产发布链验证已通过；最终干净机安装验收与发布待执行。
 
 - 新增旧式内嵌 ekey 与新版 `musicex` `.mflac/.mgg` 解密；
-- 修复 QQ 音乐未出现在“查找本机音乐”：在 Windows“音乐”已知文件夹下优先发现 `VipSongsDownload`，兼容目录重定向，并排除未完成的 `downloadproxyNew` 缓存；
+- 修复 QQ 音乐未出现或被错误归入网易云音乐：在 Windows“音乐”已知文件夹下优先发现 `VipSongsDownload`，兼容目录重定向；当客户端目录重叠时按加密格式归入正确软件，并排除未完成的 `downloadproxyNew` 缓存；
 - `musicex` 每个转换批次从当前用户 QQ 音乐会话取得请求级 ekey，不上传音频内容或本地路径；
 - 会话优先读取 `SetCookie.dat/_SetCookie.dat` 中明确的 `authst` 字段，必要时以只读权限扫描同用户 QQMusic/qmbrowser 进程；
 - 取钥使用 QQ 音乐运营的未公开客户端兼容端点，不使用 DLL 注入、固定偏移、进程写权限或管理员权限；
@@ -11,6 +11,7 @@
 - 修复 KGG 混合批次全失败及并发数据库 key map 串用风险；
 - KGG MAP 解密改为保持原算法边界语义的周期查表，RC4 每个读取块复用工作区，降低大批量转换的计算与分配开销；
 - MP3 转码显式使用内嵌 FFmpeg 的 `libmp3lame`，转换设置补充兼容性、无损、未压缩、免重编码和 VBR 档位说明；
+- 应用内更新安装器保持官方 GitHub 优先，直连失败时使用 `gh.h233.eu.org` 兜底，两条路径均强制校验配套 SHA-256；
 - v0.6.0 已发布资产保持不变，v0.6.1 使用独立版本、Release 正文和 GitHub Actions 工作流。
 
 完整分析与验证见 `docs/2026-08-21_reverse-qqmusic-mflac-mgg-report.md`。

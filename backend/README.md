@@ -42,9 +42,9 @@ backend/
 ├── app.go                          # 原生绑定、启动状态与关窗拦截
 ├── app_conversion.go               # 转换任务、取消与 Wails 事件
 ├── app_features.go                 # 扫描、导出、试听、更新等桌面方法
-├── app_update.go                   # 官方 Release 自动更新下载、校验与安装器启动
+├── app_update.go                   # 官方 Release 优先、备用转发兜底的更新下载、校验与安装器启动
 ├── app_cache.go                    # 应用运行时缓存统计与安全清理
-├── app_music_discovery.go          # 查找本机音乐的分组、去重与受限扫描
+├── app_music_discovery.go          # 查找本机音乐的格式归类、去重与受限扫描
 ├── app_music_discovery_windows.go  # Windows 音乐软件下载目录与四客户端配置检测
 ├── app_windows_integration.go      # Windows 原生集成（任务栏进度、Toast 通知、单实例）
 ├── app_integration_other.go        # 非 Windows 平台的空实现
@@ -185,6 +185,7 @@ cd ..
 - 文本导出只允许 CSV、TXT、LOG，最大 8 MiB；
 - 试听只允许本次进程注册的结果文件；
 - GitHub 跳转只允许本项目 Releases 页面；
+- 更新安装器优先从本项目 GitHub Release 下载，直连失败时仅允许 `gh.h233.eu.org` 转发该官方地址，并始终校验配套 SHA-256；
 - 扫描超时 30 秒，转换队列上限 500，高级扫描上限 50,000。
 
 ## 3. v0.5.x 旧 HTTP 服务（迁移期参考）

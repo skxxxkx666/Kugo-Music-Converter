@@ -21,7 +21,7 @@ Windows 10 / 11 x64；不支持 Windows 7。正式资产保持未签名，并提
 - 音频内容和本地路径不会发送；UIN、会话值和 ekey 不进入 WebView、配置、历史、CSV、日志或磁盘缓存；
 - 不使用 DLL 注入、固定函数偏移、辅助 EXE、进程写权限或管理员权限；
 - STag 文件可以识别，但当前缺少可靠的资源元数据取钥路径，会返回明确的不支持提示；
-- 修复“查找本机音乐”无法识别 QQ 音乐：优先扫描 Windows“音乐”已知文件夹下的 `VipSongsDownload`，兼容已知文件夹重定向；不扫描 `downloadproxyNew` 临时缓存；
+- 修复“查找本机音乐”无法识别或错误归类 QQ 音乐：优先扫描 Windows“音乐”已知文件夹下的 `VipSongsDownload`，兼容已知文件夹重定向；当多个客户端目录互相包含时，NCM 与 MFLAC/MGG/QMC 仍按格式归入网易云和 QQ 音乐；不扫描 `downloadproxyNew` 临时缓存；
 - MFLAC Copy 会用内嵌 FFmpeg 严格校验。若 raw 解密流仅在末尾带残缺 FLAC 包，则自动无损重建并复验；MGG Copy 保持原始 OGG。
 
 每个包含 `musicex` 文件的转换批次都需要联网取钥。QQ 音乐未运行、未登录、会话过期、账号失去资源权限或网络不可用时，只影响对应的 modern QMC 文件，同批其他格式继续转换。
@@ -34,6 +34,7 @@ Windows 10 / 11 x64；不支持 Windows 7。正式资产保持未签名，并提
 - KGG 数据库失败只影响 KGG 项，不再令混合批次全部失败；
 - KGG 显式数据库请求使用本次加载的 immutable key-map 快照，避免并发请求切换全局缓存后串用另一数据库；
 - 新增尾部损坏、STag 不支持、未登录、会话过期、账号无权限、网络失败和协议异常等错误码。
+- 应用内更新安装器始终优先从官方 GitHub Release 下载，直连失败时使用 `gh.h233.eu.org` 转发同一官方地址；两条路径都要求配套 SHA-256 校验通过后才启动安装器。
 
 ### 性能与转换设置
 
@@ -51,6 +52,7 @@ v0.6.1 将首次声明版本提升为 v2，升级用户会再次看到 modern QM
 - QMC 容器、尾部、MAP/RC4 分块、有界流和错误分流单元测试通过；
 - GetEVkey 请求结构、敏感值不泄漏、超大响应、重定向、取消和批次时限测试通过；
 - mixed batch 离线优先、资源大小写、会话访问短路和 Windows amd64/386 构建边界测试通过；
+- 重叠客户端目录按文件格式归类，以及 GitHub 优先、备用地址兜底的更新下载顺序测试通过；
 - QQ 音乐 PC 22.52 真实 `musicex` MFLAC 解密为 FLAC；
 - QQ 音乐 PC 22.52 真实 `musicex` MGG 解密为 OGG；
 - `go test ./...`、release build-tag、`go vet ./...`、前端语法和 Node 测试通过；

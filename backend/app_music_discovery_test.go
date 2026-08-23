@@ -87,6 +87,44 @@ func TestFindLocalMusicHonorsFileLimit(t *testing.T) {
 	}
 }
 
+func TestFindLocalMusicClassifiesOverlappingDirectoriesByFormat(t *testing.T) {
+	root := t.TempDir()
+	qqDir := filepath.Join(root, "Music", "VipSongsDownload")
+	mustWriteDiscoveryFile(t, filepath.Join(root, "cloud.ncm"), "ncm")
+	mustWriteDiscoveryFile(t, filepath.Join(qqDir, "qq-lossless.mflac"), "mflac")
+	mustWriteDiscoveryFile(t, filepath.Join(qqDir, "qq-high-quality.mgg"), "mgg")
+
+	result, err := findLocalMusic(context.Background(), []musicSearchSource{
+		{
+			ID:          "netease",
+			Name:        "网易云音乐",
+			Directories: []musicSearchDirectory{{Path: root, Recursive: true}},
+		},
+		{
+			ID:          "qq",
+			Name:        "QQ 音乐",
+			Directories: []musicSearchDirectory{{Path: qqDir, Recursive: true}},
+		},
+	}, 500)
+	if err != nil {
+		t.Fatalf("findLocalMusic() error = %v", err)
+	}
+	if len(result.Groups) != 2 {
+		t.Fatalf("groups = %#v, want NetEase and QQ Music", result.Groups)
+	}
+	if result.Groups[0].ID != "netease" || len(result.Groups[0].Files) != 1 || !strings.EqualFold(filepath.Ext(result.Groups[0].Files[0].Name), ".ncm") {
+		t.Fatalf("NetEase group = %#v, want only NCM", result.Groups[0])
+	}
+	if result.Groups[1].ID != "qq" || len(result.Groups[1].Files) != 2 {
+		t.Fatalf("QQ Music group = %#v, want MFLAC and MGG", result.Groups[1])
+	}
+	for _, file := range result.Groups[1].Files {
+		if ext := strings.ToLower(filepath.Ext(file.Name)); ext != ".mflac" && ext != ".mgg" {
+			t.Fatalf("QQ Music group contains %q", file.Name)
+		}
+	}
+}
+
 func TestNormalizeMusicSearchDirectories(t *testing.T) {
 	root := t.TempDir()
 	directories := normalizeMusicSearchDirectories([]musicSearchDirectory{
