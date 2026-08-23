@@ -10,7 +10,7 @@
 
 [![Release](https://img.shields.io/github/v/release/skxxxkx666/Kugo-Music-Converter?label=Release&color=blue)](https://github.com/skxxxkx666/Kugo-Music-Converter/releases/latest)
 [![License](https://img.shields.io/github/license/skxxxkx666/Kugo-Music-Converter?label=License&color=green)](COPYING)
-[![Go](https://img.shields.io/badge/Go-1.26.6-00ADD8?logo=go&logoColor=white)](https://go.dev/)
+[![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)](https://go.dev/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011%20x64-0078D4?logo=windows&logoColor=white)](#系统要求)
 [![Downloads](https://img.shields.io/github/downloads/skxxxkx666/Kugo-Music-Converter/total?label=Downloads&color=orange)](https://github.com/skxxxkx666/Kugo-Music-Converter/releases)
 
@@ -105,7 +105,7 @@ v0.6.0：
 - 原生多文件选择、目录递归扫描、文件和文件夹拖放；
 - 队列行选中、双击试听、右键上下文菜单、单项移除和全部清空；
 - 键盘快捷键：`Ctrl+O` 选择文件、`Enter` 开始转换、`Esc` 取消、`Delete` 移除选中项；
-- 查找本机音乐：读取酷狗自定义下载配置并检测酷狗 / 网易云 / 酷我 / QQ 音乐常见下载目录；QQ 音乐会优先扫描 Windows“音乐”已知文件夹下的 `VipSongsDownload`，兼容“音乐”目录重定向；即使多个客户端目录互相包含，也会按加密格式归入正确的软件分组；结果显示真实品牌图标，支持分组全选、整行点选、结果区折叠（不遍历全盘、不修改源文件，也不把 QQ `downloadproxyNew` 临时缓存当成完成下载）。
+- 查找本机音乐：读取酷狗自定义下载配置并检测酷狗 / 网易云 / 酷我 / QQ 音乐常见下载目录；QQ 音乐会优先扫描 Windows“音乐”已知文件夹下的 `VipSongsDownload`，兼容“音乐”目录重定向；结果按软件分组显示真实品牌图标，支持分组全选、整行点选、结果区折叠（不遍历全盘、不修改源文件，也不把 QQ `downloadproxyNew` 临时缓存当成完成下载）。
 
 **原生桌面体验**
 
@@ -114,7 +114,7 @@ v0.6.0：
 - 转换进行中关闭窗口会弹出原生退出确认；
 - 单实例运行，重复启动会激活已有窗口；
 - 原生取消确认，取消不删除已生成的成功文件；
-- 显式自动更新：应用内优先从官方 GitHub Release 下载安装器，直连失败时使用 `gh.h233.eu.org` 兜底，并在启动安装器前强制校验配套 SHA-256；
+- 显式自动更新：官方安装器下载 + SHA-256 配套校验；
 - 应用运行时缓存统计和确认清理（仅移除旧 FFmpeg、旧内嵌 WebView2 和更新临时文件）。
 
 **界面**
@@ -182,7 +182,7 @@ v0.6.0：
 - 目录扫描；
 - CSV 和诊断日志导出；
 - 本机历史记录；
-- GitHub Release 更新检测、应用内安装器下载与手动 Releases 回退。
+- GitHub Release 更新检测。
 
 ## 支持格式
 
@@ -212,7 +212,7 @@ v0.6.0：
 - Windows 7 不在支持范围内；
 - 标准版需要 Microsoft Edge WebView2 Runtime，Windows 10/11 与新版 Microsoft Edge 通常已经包含；
 - 内置 WebView2 版携带 Microsoft Fixed Version Runtime，适合无法安装运行时的受管控环境，但下载体积和首次启动缓存明显更大；
-- v0.6.0 及以后正式构建均强制内嵌 FFmpeg。
+- v0.6.0 正式构建强制内嵌 FFmpeg。
 
 ## 历史版 v0.5.1 使用方法
 
@@ -228,8 +228,8 @@ v0.6.0：
 
 ### 前置条件
 
-- Go 1.26.6；
-- Wails CLI 与应用运行库 v2.14.0；
+- Go 1.26；
+- Wails CLI v2.14.0；
 - Windows WebView2 Runtime；
 - NSIS 3（用于生成按用户安装器）。
 
@@ -297,7 +297,7 @@ QQ 音乐未运行、未登录、会话过期、账号无资源权限或网络�
 - QQ 音乐会话和 ekey 只在本次转换的 Go 后端内存中使用，不进入 WebView、本机历史、配置、CSV 或诊断日志；
 - v0.6.0 转换进程不监听 TCP 端口；
 - v0.5.1 只监听本机 `localhost`；
-- 检查更新会访问 GitHub Release API 或预设镜像；只有用户确认后，程序才会在应用内下载对应安装器和 SHA-256。下载始终先尝试官方 GitHub Release，直连失败时才使用 `gh.h233.eu.org` 转发同一官方地址；安装器校验通过后启动，失败时可打开 Releases 手动更新。便携版若要继续保持便携使用方式，应手动下载新的便携 EXE。
+- 检查更新会访问 GitHub Release API 或预设镜像；只有用户确认自动更新后，程序才会从官方 GitHub Release 下载安装器和 SHA-256。
 
 ## 常见问题
 
@@ -352,7 +352,7 @@ Kugo-Music-Converter-Modpacks/
 
 ## 当前分支状态
 
-v0.6.0 已发布。v0.6.1 分支已完成 MFLAC/MGG 实现、本机 QQ 音乐 22.52 真实样本验证、核心质量门禁和四资产发布链验证；待完成最终干净机安装验收、标签和 Release 发布。
+v0.6.0 已发布。v0.6.1 分支已完成 MFLAC/MGG 实现与本机 QQ 音乐 22.52 真实样本验证；待完成正式四资产构建、干净机安装验收、提交、标签和 Release 发布。
 
 ## 许可证
 
