@@ -320,12 +320,18 @@ func hasKGG(items []service.BatchItem) bool {
 type qmcBatchFuture struct {
 	done chan struct{}
 	keys map[string]qmcBatchKey
+	err  error
 }
 
 func startQMCBatchFuture(ctx context.Context, handler *ConvertHandler, items []service.BatchItem) *qmcBatchFuture {
 	future := &qmcBatchFuture{done: make(chan struct{})}
 	go func() {
-		defer close(future.done)
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				future.err = NewAppError(ErrQMCKeyUnavailable, fmt.Sprintf("QQ 音乐取钥任务异常 (%T)", recovered), nil)
+			}
+			close(future.done)
+		}()
 		future.keys = handler.resolveQMCBatchKeys(ctx, items)
 	}()
 	return future
@@ -339,7 +345,7 @@ func (f *qmcBatchFuture) wait(ctx context.Context) (map[string]qmcBatchKey, erro
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case <-f.done:
-		return f.keys, nil
+		return f.keys, f.err
 	}
 }
 
@@ -379,7 +385,10 @@ func (h *ConvertHandler) convertSingleItem(ctx context.Context, item service.Bat
 		}
 		qmcKeys, waitErr := qmcFuture.wait(ctx)
 		if waitErr != nil {
-			return "", NewAppError(ErrCancelled, "QQ 音乐取钥已取消", waitErr)
+			if errors.Is(waitErr, context.Canceled) || errors.Is(waitErr, context.DeadlineExceeded) {
+				return "", NewAppError(ErrCancelled, "QQ 音乐取钥已取消", waitErr)
+			}
+			return "", waitErr
 		}
 		if key, ok := qmcKeys[item.Path]; ok {
 			if key.err != nil {

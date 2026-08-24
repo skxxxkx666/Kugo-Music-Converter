@@ -136,6 +136,45 @@ func TestDownloadOfficialReleaseAssetStopsAfterGitHubSuccess(t *testing.T) {
 	}
 }
 
+func TestDownloadOfficialReleaseAssetFromGitHubNeverUsesFallback(t *testing.T) {
+	originalTransport := http.DefaultTransport
+	t.Cleanup(func() { http.DefaultTransport = originalTransport })
+
+	attemptedURLs := make([]string, 0, 1)
+	http.DefaultTransport = roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		attemptedURLs = append(attemptedURLs, request.URL.String())
+		status := http.StatusFound
+		body := ""
+		header := make(http.Header)
+		header.Set("Location", updateDownloadProxyBase+officialAssetURL("Kugo-Music-Converter-v0.6.0-windows-amd64-setup.exe.sha256"))
+		if request.URL.Hostname() == "gh.h233.eu.org" {
+			status = http.StatusOK
+			body = "forged checksum"
+		}
+		return &http.Response{
+			StatusCode:    status,
+			Body:          io.NopCloser(strings.NewReader(body)),
+			ContentLength: int64(len(body)),
+			Header:        header,
+			Request:       request,
+		}, nil
+	})
+
+	assetName := "Kugo-Music-Converter-v0.6.0-windows-amd64-setup.exe.sha256"
+	destination := filepath.Join(t.TempDir(), assetName)
+	err := downloadOfficialReleaseAssetFromGitHub(t.Context(), handler.ReleaseAsset{
+		Name:        assetName,
+		DownloadURL: officialAssetURL(assetName),
+		Size:        100,
+	}, destination, 1024)
+	if err == nil {
+		t.Fatal("GitHub failure was accepted for the checksum asset")
+	}
+	if len(attemptedURLs) != 1 || attemptedURLs[0] != officialAssetURL(assetName) {
+		t.Fatalf("attempted URLs = %#v, want only official GitHub", attemptedURLs)
+	}
+}
+
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
