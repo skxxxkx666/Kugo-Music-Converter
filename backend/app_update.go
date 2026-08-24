@@ -72,7 +72,7 @@ func (a *App) DownloadAndInstallUpdate(tagName string) (UpdateInstallResult, err
 		Type:  wailsruntime.QuestionDialog,
 		Title: "下载并安装更新",
 		Message: fmt.Sprintf(
-			"将优先从项目官方 GitHub Release 下载 %s（约 %s）；直连失败时使用 gh.h233.eu.org 转发同一官方地址。SHA-256 校验通过后才会启动安装器。\n\n安装器启动后应用将退出，请先保存其他工作。",
+			"程序会先从项目官方 GitHub Release 获取 SHA-256 校验文件，再下载 %s（约 %s）。安装器直连失败时可使用 gh.h233.eu.org 转发同一官方地址；如果无法从 GitHub 获取校验文件，自动更新将停止。校验通过后才会启动安装器。\n\n安装器启动后应用将退出，请先保存其他工作。",
 			installer.Name,
 			formatCacheBytes(installer.Size),
 		),
