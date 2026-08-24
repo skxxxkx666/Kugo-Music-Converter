@@ -15,7 +15,7 @@ for (const extension of [".mflac", ".mgg"]) {
 }
 
 test("desktop queue advertises QQ Music MFLAC and MGG support", () => {
-  assert.match(indexHTML, /酷我、QQ 音乐或传统 QMC/);
+  assert.match(indexHTML, /酷我、QQ 音乐加密音频/);
   assert.match(indexHTML, /<span>MFLAC<\/span>/);
   assert.match(indexHTML, /<span>MGG<\/span>/);
 });
