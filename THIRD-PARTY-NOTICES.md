@@ -9,7 +9,7 @@ The Windows executable also contains or uses the following third-party component
 | FFmpeg | git `35c091f4b7fb19aee9dfcc6c60ace0be92907ce5` | GPL-3.0-or-later for the bundled configuration | <https://ffmpeg.org/> |
 | Microsoft Edge WebView2 Fixed Runtime (optional build) | 151.0.4129.93 x64 | Microsoft software license terms | <https://developer.microsoft.com/microsoft-edge/webview2/> |
 | Inter | bundled WOFF2 files | SIL Open Font License 1.1 | <https://github.com/rsms/inter> |
-| Wails | 2.12.0 | MIT | <https://github.com/wailsapp/wails> |
+| Wails | 2.14.0 | MIT | <https://github.com/wailsapp/wails> |
 | Unlock Music CLI algorithms | 0.2.12 | MIT | <https://git.unlock-music.dev/um/cli> |
 | go-toast | 2.0.3 | Unlicense OR MIT | <https://git.sr.ht/~jackmordaunt/go-toast> |
 | go-ole | 1.3.0 | MIT | <https://github.com/go-ole/go-ole> |

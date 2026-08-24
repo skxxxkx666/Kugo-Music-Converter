@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"unicode/utf16"
 
 	"unlock-music.dev/cli/algo/qmc"
 )
@@ -128,10 +129,41 @@ func TestDecryptLegacyQmcPureGo(t *testing.T) {
 	}
 }
 
-func TestDecryptFileByExtRejectsUnsupportedNewQmcVariants(t *testing.T) {
-	_, err := NewDecryptService(nil).DecryptFileByExt("sample.mflac")
-	if !errors.Is(err, ErrUnsupportedInput) {
-		t.Fatalf("DecryptFileByExt() error = %v, want ErrUnsupportedInput", err)
+func TestDecryptModernQMCRequiresRequestKey(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "sample.mflac")
+	fixture := append(bytes.Repeat([]byte{0x5a}, 64), buildMusicExFooter(t, "001SyntheticMID", "F0M000Synthetic.mflac")...)
+	if err := os.WriteFile(path, fixture, 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	_, err := NewDecryptService(nil).DecryptFileByExt(path)
+	if !errors.Is(err, ErrMissingQMCKey) {
+		t.Fatalf("DecryptFileByExt() error = %v, want ErrMissingQMCKey", err)
+	}
+}
+
+func buildMusicExFooter(t *testing.T, mediaMID, filename string) []byte {
+	t.Helper()
+	footer := make([]byte, 0xC0)
+	binary.LittleEndian.PutUint32(footer[0:4], 42)
+	binary.LittleEndian.PutUint32(footer[4:8], 2)
+	binary.LittleEndian.PutUint32(footer[8:12], 5)
+	writeUTF16LEFixture(t, footer[0x0C:0x48], mediaMID)
+	writeUTF16LEFixture(t, footer[0x48:0x8C], filename)
+	binary.LittleEndian.PutUint32(footer[0xB0:0xB4], uint32(len(footer)))
+	binary.LittleEndian.PutUint32(footer[0xB4:0xB8], 1)
+	copy(footer[0xB8:], []byte("musicex\x00"))
+	return footer
+}
+
+func writeUTF16LEFixture(t *testing.T, dst []byte, value string) {
+	t.Helper()
+	encoded := utf16.Encode([]rune(value))
+	if (len(encoded)+1)*2 > len(dst) {
+		t.Fatalf("UTF-16 fixture %q does not fit", value)
+	}
+	for index, unit := range encoded {
+		binary.LittleEndian.PutUint16(dst[index*2:index*2+2], unit)
 	}
 }
 

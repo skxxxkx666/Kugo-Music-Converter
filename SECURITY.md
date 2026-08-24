@@ -8,12 +8,16 @@ Security fixes are provided for the latest published release. Older versions may
 
 Use GitHub Private Vulnerability Reporting when it is available for this repository. If it is not available, open a minimal GitHub issue asking the maintainers for a private reporting channel.
 
-Do not attach music files, `KGMusicV3.db`, encryption keys, credentials, personal paths or exploit material to a public issue. Include only the minimum non-sensitive information needed to identify the affected version and component.
+Do not attach music files, `KGMusicV3.db`, encryption keys, QQ Music session values, account identifiers, credentials, personal paths or exploit material to a public issue. Include only the minimum non-sensitive information needed to identify the affected version and component.
 
 Maintainers should acknowledge a valid report, investigate it before public disclosure, prepare a replacement release when necessary and document the remediation after users have a reasonable opportunity to update.
 
+## QQ Music session handling
+
+Modern `.mflac` and `.mgg` conversion reads explicit `authst` fields from the current user's QQ Music cookie files and, when necessary, scans readable memory in same-user `QQMusic.exe` / `qmbrowser.exe` processes using query and memory-read permissions only. It then requests the resource ekey from the QQ-operated `u.y.qq.com` endpoint through an undocumented client compatibility protocol. The application does not inject code, load QQ Music DLLs, request process write access or store session values and ekeys. Reports involving this path must contain only redacted error categories and version information, never raw request bodies, memory contents, session values, UINs or ekeys.
+
 ## Release integrity
 
-v0.6.0 Windows executables are intentionally unsigned. Each formal asset must be built by [`.github/workflows/release-windows-v0.6.0.yml`](.github/workflows/release-windows-v0.6.0.yml), pass PE metadata and payload checks, and include a published SHA-256 file. Users should download only from this repository's GitHub Releases page and verify the checksum.
+v0.6.0 published Windows executables are intentionally unsigned and remain governed by the immutable v0.6.0 workflow. The v0.6.1 release branch also remains unsigned because SignPath has not been enabled; its dedicated workflow must build the exact tagged source, pass PE metadata and payload checks, and publish a SHA-256 file for every asset. The in-app updater always tries the official GitHub Release asset first. If that download fails, it may request the same official asset URL through `gh.h233.eu.org`; the proxy is a third-party transport fallback, and the installer is not launched unless its accompanying SHA-256 file matches. Manual downloads should use this repository's GitHub Releases page and verify the checksum.
 
-Authenticode signing through SignPath Foundation is deferred for evaluation in v0.6.1. The proposed future policy is documented in [`SIGNING-POLICY.md`](SIGNING-POLICY.md) and does not apply retroactively to v0.6.0.
+The proposed SignPath policy remains inactive. Enabling Authenticode requires a separate policy decision, protected credentials and workflow changes documented in [`SIGNING-POLICY.md`](SIGNING-POLICY.md).

@@ -1,10 +1,11 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
     [string]$SampleDirectory,
     [string]$DatabasePath = "",
     [string]$KGGV2Sample = "",
-    [string]$FFmpegPath = (Join-Path $PSScriptRoot "tools\ffmpeg.exe"),
+    [string]$FFmpegPath = "",
+    [string]$OutputDirectory = "",
     [string]$ReportPath = "",
     [switch]$RequireCompleteCoverage,
     [switch]$InventoryOnly
@@ -12,6 +13,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
+
+if ([string]::IsNullOrWhiteSpace($FFmpegPath)) {
+    $FFmpegPath = Join-Path $PSScriptRoot "tools\ffmpeg.exe"
+}
 
 $sampleRoot = [IO.Path]::GetFullPath($SampleDirectory)
 if (-not (Test-Path -LiteralPath $sampleRoot -PathType Container)) {
@@ -25,6 +30,8 @@ $coverageGroups = [ordered]@{
     VPR = @(".vpr")
     NCM = @(".ncm")
     KWM = @(".kwm")
+    QMC_MFLAC = @(".mflac")
+    QMC_MGG = @(".mgg")
     QMC = @(".qmc0", ".qmc2", ".qmc3", ".qmc4", ".qmc6", ".qmc8", ".qmcflac", ".qmcogg", ".tkm")
 }
 $supportedExtensions = @($coverageGroups.Values | ForEach-Object { $_ } | ForEach-Object { $_.ToLowerInvariant() })
@@ -90,7 +97,8 @@ if (-not $InventoryOnly) {
         "KUGO_TEST_DB",
         "KUGO_TEST_OUTPUT_FORMAT",
         "KUGO_TEST_CONCURRENCY",
-        "KUGO_TEST_INPUT"
+        "KUGO_TEST_INPUT",
+        "KUGO_TEST_OUTPUT_DIR"
     )
     $previousEnvironment = @{}
     foreach ($name in $environmentNames) {
@@ -102,6 +110,13 @@ if (-not $InventoryOnly) {
         $env:KUGO_TEST_DB = $DatabasePath
         $env:KUGO_TEST_OUTPUT_FORMAT = "copy"
         $env:KUGO_TEST_CONCURRENCY = "1"
+        if (-not [string]::IsNullOrWhiteSpace($OutputDirectory)) {
+            $resolvedOutputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
+            New-Item -ItemType Directory -Path $resolvedOutputDirectory -Force | Out-Null
+            $env:KUGO_TEST_OUTPUT_DIR = $resolvedOutputDirectory
+        } else {
+            $env:KUGO_TEST_OUTPUT_DIR = $null
+        }
 
         Push-Location (Join-Path $PSScriptRoot "backend")
         try {
@@ -130,7 +145,8 @@ if (-not $InventoryOnly) {
 
 if (-not [string]::IsNullOrWhiteSpace($ReportPath)) {
     $resolvedReportPath = [IO.Path]::GetFullPath($ReportPath)
-    $report | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $resolvedReportPath -Encoding utf8NoBOM
+    $reportJson = $report | ConvertTo-Json -Depth 5
+    [IO.File]::WriteAllText($resolvedReportPath, $reportJson, [Text.UTF8Encoding]::new($false))
 }
 
 Write-Host "真实样本覆盖：$($report.counts | ConvertTo-Json -Compress)"

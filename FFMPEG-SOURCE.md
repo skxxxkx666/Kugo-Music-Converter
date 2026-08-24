@@ -1,6 +1,6 @@
 # Bundled FFmpeg source and build provenance
 
-Kugo Music Converter v0.6.0 embeds the following Windows x64 FFmpeg executable:
+Kugo Music Converter v0.6.0 and v0.6.1 embed the following Windows x64 FFmpeg executable:
 
 | Field | Value |
 |---|---|
@@ -19,7 +19,7 @@ Kugo Music Converter v0.6.0 embeds the following Windows x64 FFmpeg executable:
 - Distributor support repository: <https://github.com/GyanD/codexffmpeg>
 - Release-build acquisition mirror: <https://github.com/skxxxkx666/Kugo-Music-Converter/releases/download/v0.5.1/Kugo-Music-Converter-v0.5.1-windows-amd64.zip>
 
-`prepare-ffmpeg.ps1` retrieves the already-published v0.5.1 package and accepts only the exact FFmpeg executable recorded above. The release workflow publishes this document, the GPL text and the application source tag alongside the executable. If the embedded FFmpeg executable is replaced, update the commit, SHA-256, version output and build configuration in this file before release.
+`prepare-ffmpeg.ps1` retrieves the already-published v0.5.1 package and accepts only the exact FFmpeg executable recorded above. The application source tag contains this provenance document, the GPL text and the release scripts; each Windows asset is published with its own SHA-256 file. If the embedded FFmpeg executable is replaced, update the commit, SHA-256, version output and build configuration in this file before release.
 
 ## Build configuration
 

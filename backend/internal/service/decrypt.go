@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"kugo-music-converter/internal/algo/kgg"
+	"kugo-music-converter/internal/algo/qmcfile"
 	"kugo-music-converter/internal/config"
 	"kugo-music-converter/internal/logger"
 
@@ -146,6 +147,8 @@ func (s *DecryptService) DecryptFileByExt(inPath string) (io.ReadCloser, error) 
 		return s.decryptKwmPureGo(inPath)
 	case ".qmc0", ".qmc2", ".qmc3", ".qmc4", ".qmc6", ".qmc8", ".qmcflac", ".qmcogg", ".tkm":
 		return s.decryptQmcPureGo(inPath)
+	case ".mflac", ".mgg":
+		return s.decryptQmcAuto(inPath)
 	default:
 		return nil, fmt.Errorf("%w: %s", ErrUnsupportedInput, ext)
 	}
@@ -215,6 +218,43 @@ func (s *DecryptService) decryptKwmPureGo(inPath string) (io.ReadCloser, error) 
 			return nil, fmt.Errorf("%w: invalid KWM: %v", ErrDecryptProcess, err)
 		}
 		return newStackedReadCloser(dec, in), nil
+	})
+}
+
+func (s *DecryptService) decryptQmcAuto(inPath string) (io.ReadCloser, error) {
+	info, err := qmcfile.Inspect(inPath)
+	if err != nil {
+		return nil, fmt.Errorf("%w: invalid QMC container: %v", ErrDecryptProcess, err)
+	}
+	switch info.Kind {
+	case qmcfile.KindLegacy, qmcfile.KindQTag:
+		return s.decryptQmcPureGo(inPath)
+	case qmcfile.KindSTag:
+		return nil, fmt.Errorf("%w: STag key lookup is not implemented", ErrUnsupportedInput)
+	case qmcfile.KindMusicEx:
+		return nil, fmt.Errorf("%w: musicex file requires a QQ Music session", ErrMissingQMCKey)
+	default:
+		return nil, fmt.Errorf("%w: unknown QMC container", ErrUnsupportedInput)
+	}
+}
+
+// DecryptQMCWithEKey decrypts one inspected musicex file using a request-scoped ekey.
+func (s *DecryptService) DecryptQMCWithEKey(inPath, ekey string) (io.ReadCloser, error) {
+	return buildDecryptReader("qmc", func() (io.ReadCloser, error) {
+		reader, _, err := qmcfile.Open(inPath, ekey)
+		if err != nil {
+			switch {
+			case errors.Is(err, qmcfile.ErrMissingEKey):
+				return nil, fmt.Errorf("%w: %v", ErrMissingQMCKey, err)
+			case errors.Is(err, qmcfile.ErrInvalidEKey):
+				return nil, fmt.Errorf("%w: QQ Music returned an invalid ekey", ErrMissingQMCKey)
+			case errors.Is(err, qmcfile.ErrUnsupportedFooter):
+				return nil, fmt.Errorf("%w: %v", ErrUnsupportedInput, err)
+			default:
+				return nil, fmt.Errorf("%w: invalid QMC: %v", ErrDecryptProcess, err)
+			}
+		}
+		return reader, nil
 	})
 }
 

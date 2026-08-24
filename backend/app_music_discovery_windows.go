@@ -56,10 +56,7 @@ func defaultMusicSearchSources() []musicSearchSource {
 		"KwDownload", "KuWo", "KuwoMusic", filepath.Join("KuwoMusic", "Download"), "酷我音乐")...)
 	kuwoDirectories = append(kuwoDirectories, musicDirectoriesFromConfigRoots(kuwoConfigRoots())...)
 
-	qqDirectories := musicDirectoriesUnder(musicRoots, "QQMusic", "QQ音乐", filepath.Join("Tencent", "QQMusic"))
-	qqDirectories = append(qqDirectories, musicDirectoriesAtFixedDriveRoots(
-		"QQMusic", filepath.Join("QQMusic", "Song"), filepath.Join("Tencent", "QQMusic"), "QQ音乐")...)
-	qqDirectories = append(qqDirectories, musicDirectoriesFromConfigRoots(qqMusicConfigRoots())...)
+	qqDirectories := qqMusicDirectories(musicRoots)
 
 	return []musicSearchSource{
 		{
@@ -87,6 +84,29 @@ func defaultMusicSearchSources() []musicSearchSource {
 			Directories: qqDirectories,
 		},
 	}
+}
+
+func qqMusicDirectories(musicRoots []string) []musicSearchDirectory {
+	directories := qqMusicKnownDirectories(musicRoots)
+	directories = append(directories, musicDirectoriesAtFixedDriveRoots(
+		"VipSongsDownload",
+		"QQMusic",
+		filepath.Join("QQMusic", "Song"),
+		filepath.Join("Tencent", "QQMusic"),
+		"QQ音乐",
+	)...)
+	directories = append(directories, musicDirectoriesFromConfigRoots(qqMusicConfigRoots())...)
+	return directories
+}
+
+func qqMusicKnownDirectories(musicRoots []string) []musicSearchDirectory {
+	directories := musicDirectoriesUnder(musicRoots, "VipSongsDownload")
+	return append(directories, musicDirectoriesUnder(
+		musicRoots,
+		"QQMusic",
+		"QQ音乐",
+		filepath.Join("Tencent", "QQMusic"),
+	)...)
 }
 
 func neteaseConfigRoots() []string {

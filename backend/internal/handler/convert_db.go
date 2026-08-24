@@ -47,9 +47,16 @@ func (h *ConvertHandler) getDBForRequest(requestPath string) (string, string, ma
 		h.dbMu.RUnlock()
 
 		if !alreadyLoaded {
-			if err := h.loadDBByPath(validation.Path, "manual"); err != nil {
+			keys, err := service.LoadDBKeyMap(validation.Path)
+			if err != nil {
 				return "", "", nil, NewAppError(ErrDBNotFound, err.Error(), nil)
 			}
+			h.dbMu.Lock()
+			h.dbPath = validation.Path
+			h.dbSource = "manual"
+			h.dbKeyMap = keys
+			h.dbMu.Unlock()
+			return validation.Path, "manual", keys, nil
 		}
 	}
 
@@ -67,11 +74,14 @@ func (h *ConvertHandler) getDBForRequest(requestPath string) (string, string, ma
 	if !status.Found {
 		return "", "", nil, NewAppError(ErrDBNotFound, "未检测到 KGMusicV3.db", nil)
 	}
-	if err := h.loadDBByPath(status.Path, status.Source); err != nil {
+	keys, err := service.LoadDBKeyMap(status.Path)
+	if err != nil {
 		return "", "", nil, NewAppError(ErrDBNotFound, err.Error(), nil)
 	}
-
-	h.dbMu.RLock()
-	defer h.dbMu.RUnlock()
-	return h.dbPath, h.dbSource, h.dbKeyMap, nil
+	h.dbMu.Lock()
+	h.dbPath = status.Path
+	h.dbSource = status.Source
+	h.dbKeyMap = keys
+	h.dbMu.Unlock()
+	return status.Path, status.Source, keys, nil
 }

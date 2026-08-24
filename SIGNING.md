@@ -1,30 +1,34 @@
 # Windows code signing
 
-## v0.6.0 decision
+## Release signing policy
 
-Kugo Music Converter v0.6.0 is intentionally released without Authenticode signing. Applying to SignPath Foundation and enabling a signing gate are deferred for evaluation in v0.6.1.
+Kugo Music Converter v0.6.0 and v0.6.1 are intentionally released without Authenticode signing. v0.6.1 does not apply to or integrate SignPath Foundation.
 
-The v0.6.0 release workflow therefore:
+Each release workflow:
 
-1. builds the standard and bundled-WebView2 Windows x64 executables;
+1. builds two Windows x64 portable executables and two per-user installers;
 2. verifies PE product and version metadata;
-3. requires both executables to report `NotSigned` rather than an invalid or unexpected signature;
-4. publishes a separate SHA-256 file for each executable;
+3. requires all four PE assets to report `NotSigned` rather than an invalid or unexpected signature;
+4. publishes a separate SHA-256 file for every portable executable and installer;
 5. stages the assets in a draft GitHub Release for maintainer review.
 
-Windows SmartScreen may display “Unknown publisher” for v0.6.0. Users should download only from this repository's GitHub Releases page and compare the published SHA-256 value before running the file.
+Windows SmartScreen may display “Unknown publisher”. Users should download only from this repository's GitHub Releases page and compare the published SHA-256 value before running the file.
 
-Local verification for v0.6.0:
+Local verification example:
 
 ```powershell
 ./verify-release.ps1 `
-  -ExecutablePath ./Kugo-Music-Converter-v0.6.0-windows-amd64.exe `
-  -ExpectedVersion v0.6.0
+  -ExecutablePath ./Kugo-Music-Converter-v0.6.1-windows-amd64.exe `
+  -ExpectedVersion v0.6.1
 ```
 
-## Proposed v0.6.1 SignPath evaluation
+## v0.6.1 status
 
-No SignPath token, organization or certificate is required for v0.6.0. If the project proceeds with SignPath Foundation in v0.6.1, configure protected GitHub settings only after the open-source project has been accepted:
+SignPath is not enabled for v0.6.1. The release continues the unsigned + per-asset SHA-256 model. This does not activate the proposed signing policy.
+
+## Optional future signing
+
+No SignPath application or integration is planned for v0.6.1. If a later release adopts SignPath Foundation through a separate project decision, configure protected GitHub settings only after the open-source project has been accepted:
 
 | Type | Name | Purpose |
 |---|---|---|

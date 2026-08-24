@@ -27,6 +27,7 @@ const (
 	maxUpdateInstallerBytes = int64(600 << 20)
 	maxUpdateChecksumBytes  = int64(64 << 10)
 	updateDownloadTimeout   = 30 * time.Minute
+	updateDownloadProxyBase = "https://gh.h233.eu.org/"
 )
 
 var (
@@ -71,7 +72,7 @@ func (a *App) DownloadAndInstallUpdate(tagName string) (UpdateInstallResult, err
 		Type:  wailsruntime.QuestionDialog,
 		Title: "下载并安装更新",
 		Message: fmt.Sprintf(
-			"将从项目官方 GitHub Release 下载 %s（约 %s），并在 SHA-256 校验通过后启动安装器。\n\n安装器启动后应用将退出，请先保存其他工作。",
+			"将优先从项目官方 GitHub Release 下载 %s（约 %s）；直连失败时使用 gh.h233.eu.org 转发同一官方地址。SHA-256 校验通过后才会启动安装器。\n\n安装器启动后应用将退出，请先保存其他工作。",
 			installer.Name,
 			formatCacheBytes(installer.Size),
 		),
@@ -199,7 +200,25 @@ func downloadOfficialReleaseAsset(ctx context.Context, asset handler.ReleaseAsse
 	if err := validateOfficialReleaseAssetURL(asset.DownloadURL); err != nil {
 		return err
 	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, asset.DownloadURL, nil)
+	downloadURLs := []string{
+		asset.DownloadURL,
+		updateDownloadProxyBase + asset.DownloadURL,
+	}
+	failures := make([]error, 0, len(downloadURLs))
+	for index, downloadURL := range downloadURLs {
+		if err := downloadReleaseAssetFromURL(ctx, downloadURL, destination, maximumBytes); err == nil {
+			return nil
+		} else if index == 0 {
+			failures = append(failures, fmt.Errorf("GitHub: %w", err))
+		} else {
+			failures = append(failures, fmt.Errorf("备用下载地址: %w", err))
+		}
+	}
+	return fmt.Errorf("GitHub 与备用下载地址均失败: %w", errors.Join(failures...))
+}
+
+func downloadReleaseAssetFromURL(ctx context.Context, downloadURL string, destination string, maximumBytes int64) error {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
 	if err != nil {
 		return err
 	}
@@ -210,8 +229,8 @@ func downloadOfficialReleaseAsset(ctx context.Context, asset handler.ReleaseAsse
 				return errors.New("更新下载重定向次数过多")
 			}
 			host := strings.ToLower(request.URL.Hostname())
-			if host != "github.com" && !strings.HasSuffix(host, ".githubusercontent.com") {
-				return errors.New("更新下载被重定向到非 GitHub 地址")
+			if host != "github.com" && host != "gh.h233.eu.org" && !strings.HasSuffix(host, ".githubusercontent.com") {
+				return errors.New("更新下载被重定向到未允许的地址")
 			}
 			return nil
 		},

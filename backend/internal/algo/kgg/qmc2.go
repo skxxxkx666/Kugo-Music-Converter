@@ -18,13 +18,18 @@ type QMC2Base interface {
 // 必须原样复刻。切勿“修正”为 (v<<r)|(v>>(8-r)) 的真实循环移位，否则除首
 // 字节外的解密结果全部错误（历史 bug：曾导致所有 MAP 模式 KGG 解密失败）。
 type qmc2Map struct {
-	key  []byte
-	size int
+	key   []byte
+	size  int
+	masks []byte
 }
 
 func newQMC2Map(key []byte) *qmc2Map {
 	k := append([]byte(nil), key...)
-	return &qmc2Map{key: k, size: len(k)}
+	q := &qmc2Map{key: k, size: len(k), masks: make([]byte, 0x8000)}
+	for offset := range q.masks {
+		q.masks[offset] = q.getMask(offset)
+	}
+	return q
 }
 
 func (q *qmc2Map) getMask(offset int) byte {
@@ -38,9 +43,29 @@ func (q *qmc2Map) getMask(offset int) byte {
 }
 
 func (q *qmc2Map) Decrypt(buf []byte, offset uint64) {
-	base := int(offset)
-	for i := range buf {
-		buf[i] ^= q.getMask(base + i)
+	// 上游算法在首个 0x7FFF 偏移后使用 % 0x7FFF，而不是按位与。
+	// 分块查表既避免逐字节平方和取模，也保留 0x7FFF -> 1 的特殊边界。
+	const period = uint64(0x7FFF)
+	for len(buf) > 0 {
+		var (
+			maskOffset int
+			chunkSize  int
+		)
+		if offset <= period {
+			maskOffset = int(offset)
+			chunkSize = int(period-offset) + 1
+		} else {
+			maskOffset = int(offset % period)
+			chunkSize = int(period) - maskOffset
+		}
+		if chunkSize > len(buf) {
+			chunkSize = len(buf)
+		}
+		for i := 0; i < chunkSize; i++ {
+			buf[i] ^= q.masks[maskOffset+i]
+		}
+		buf = buf[chunkSize:]
+		offset += uint64(chunkSize)
 	}
 }
 
@@ -120,24 +145,27 @@ func (c *qmc2RC4) Decrypt(buf []byte, offset uint64) {
 			return
 		}
 	}
+	// 同一次 Read 中的所有 5120 字节段复用一份工作区。每段仍从 KSA
+	// box 复制并重启 PRGA，算法不变，但避免每段一次堆分配。
+	box := make([]byte, c.n)
 
 	if off%rc4SegmentSize != 0 {
 		blockSize := toProcess
 		if blockSize > rc4SegmentSize-off%rc4SegmentSize {
 			blockSize = rc4SegmentSize - off%rc4SegmentSize
 		}
-		c.encASegment(src[processed:processed+blockSize], off)
+		c.encASegment(src[processed:processed+blockSize], off, box)
 		if markProcess(blockSize) {
 			return
 		}
 	}
 	for toProcess > rc4SegmentSize {
-		c.encASegment(src[processed:processed+rc4SegmentSize], off)
+		c.encASegment(src[processed:processed+rc4SegmentSize], off, box)
 		markProcess(rc4SegmentSize)
 	}
 
 	if toProcess > 0 {
-		c.encASegment(src[processed:], off)
+		c.encASegment(src[processed:], off, box)
 	}
 }
 
@@ -147,8 +175,7 @@ func (c *qmc2RC4) encFirstSegment(buf []byte, offset int) {
 	}
 }
 
-func (c *qmc2RC4) encASegment(buf []byte, offset int) {
-	box := make([]byte, c.n)
+func (c *qmc2RC4) encASegment(buf []byte, offset int, box []byte) {
 	copy(box, c.box)
 	j, k := 0, 0
 

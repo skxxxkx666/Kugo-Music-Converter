@@ -317,7 +317,33 @@ func hasKGG(items []service.BatchItem) bool {
 	return false
 }
 
-func (h *ConvertHandler) convertSingleItem(ctx context.Context, item service.BatchItem, req *convertRequest, dbKeys map[string]string, progress func(string, int)) (finalOutput string, retErr error) {
+type qmcBatchFuture struct {
+	done chan struct{}
+	keys map[string]qmcBatchKey
+}
+
+func startQMCBatchFuture(ctx context.Context, handler *ConvertHandler, items []service.BatchItem) *qmcBatchFuture {
+	future := &qmcBatchFuture{done: make(chan struct{})}
+	go func() {
+		defer close(future.done)
+		future.keys = handler.resolveQMCBatchKeys(ctx, items)
+	}()
+	return future
+}
+
+func (f *qmcBatchFuture) wait(ctx context.Context) (map[string]qmcBatchKey, error) {
+	if f == nil {
+		return nil, nil
+	}
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-f.done:
+		return f.keys, nil
+	}
+}
+
+func (h *ConvertHandler) convertSingleItem(ctx context.Context, item service.BatchItem, req *convertRequest, dbKeys map[string]string, dbErr error, qmcFuture *qmcBatchFuture, progress func(string, int)) (finalOutput string, retErr error) {
 	if progress != nil {
 		progress("prepare", 5)
 	}
@@ -340,10 +366,29 @@ func (h *ConvertHandler) convertSingleItem(ctx context.Context, item service.Bat
 	}()
 
 	if ext == ".kgg" {
+		if dbErr != nil {
+			return "", dbErr
+		}
 		if len(dbKeys) == 0 {
 			return "", NewAppError(ErrDBNotFound, "KGG 转换需要 KGMusicV3.db", nil)
 		}
 		rawStream, decryptErr = h.decryptService.DecryptFileByExtWithMemKey(item.Path, dbKeys)
+	} else if isModernQMCExt(item.Name) {
+		if progress != nil {
+			progress("key", 15)
+		}
+		qmcKeys, waitErr := qmcFuture.wait(ctx)
+		if waitErr != nil {
+			return "", NewAppError(ErrCancelled, "QQ 音乐取钥已取消", waitErr)
+		}
+		if key, ok := qmcKeys[item.Path]; ok {
+			if key.err != nil {
+				return "", key.err
+			}
+			rawStream, decryptErr = h.decryptService.DecryptQMCWithEKey(item.Path, key.ekey)
+		} else {
+			rawStream, decryptErr = h.decryptService.DecryptFileByExt(item.Path)
+		}
 	} else {
 		rawStream, decryptErr = h.decryptService.DecryptFileByExt(item.Path)
 	}
@@ -379,6 +424,12 @@ func (h *ConvertHandler) convertSingleItem(ctx context.Context, item service.Bat
 		if err := service.CopyReaderToFile(audioReader, outputPath); err != nil {
 			removeQuiet(outputPath)
 			return "", NewAppError(ErrTranscodeFailed, "写入输出文件失败", err)
+		}
+		if ext == ".mflac" && strings.EqualFold(rawAudioExt, ".flac") {
+			if err := h.ensureValidModernFLAC(ctx, outputPath); err != nil {
+				removeQuiet(outputPath)
+				return "", err
+			}
 		}
 		if progress != nil {
 			progress("transcode", 100)
@@ -463,35 +514,20 @@ func (h *ConvertHandler) executeBatch(ctx context.Context, req *convertRequest, 
 	runCtx, cancel := h.contextWithShutdown(ctx)
 	defer cancel()
 
-	var dbKeys map[string]string
+	var (
+		dbKeys map[string]string
+		dbErr  error
+	)
 	if hasKGG(req.Items) {
 		_, _, keys, err := h.getDBForRequest(req.DBPath)
 		if err != nil {
-			results := make([]service.BatchFileDoneEvent, 0, len(req.Items))
-			for _, item := range req.Items {
-				results = append(results, service.BatchFileDoneEvent{
-					File:    item.Name,
-					Input:   item.OriginPath,
-					Status:  "error",
-					Error:   toBatchFileError(err),
-					Current: item.Current,
-					Total:   len(req.Items),
-					Percent: 0,
-				})
-			}
-			return service.BatchSummary{
-				Success:      0,
-				Failed:       len(req.Items),
-				Total:        len(req.Items),
-				OutputDir:    req.OutputDir,
-				OutputFormat: req.OutputFormat,
-				MP3Quality:   req.MP3Quality,
-				Cancelled:    false,
-				Results:      results,
-			}
+			dbErr = err
+		} else {
+			dbKeys = keys
 		}
-		dbKeys = keys
 	}
+
+	qmcFuture := startQMCBatchFuture(runCtx, h, req.Items)
 
 	var eventMu sync.Mutex
 	send := func(name string, payload any) {
@@ -527,7 +563,7 @@ func (h *ConvertHandler) executeBatch(ctx context.Context, req *convertRequest, 
 					removeQuiet(item.Path)
 				}
 			}()
-			return h.convertSingleItem(ctx, item, req, dbKeys, progress)
+			return h.convertSingleItem(ctx, item, req, dbKeys, dbErr, qmcFuture, progress)
 		},
 		OnProgress: func(event service.BatchProgressEvent) {
 			send("progress", event)

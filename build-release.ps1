@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$OutputDirectory = (Join-Path $PSScriptRoot "dist\release"),
     [switch]$RequireCleanTree
@@ -96,6 +96,7 @@ $requiredSources = @(
     (Join-Path $projectRoot "SECURITY.md"),
     (Join-Path $projectRoot "SIGNING.md"),
     (Join-Path $projectRoot "SIGNING-POLICY.md"),
+    (Join-Path $projectRoot "docs\2026-08-21_reverse-qqmusic-mflac-mgg-report.md"),
     $releaseBodyPath,
     $versionPath,
     (Join-Path $backendDir "wails.json"),
@@ -141,7 +142,24 @@ if ($wailsConfig.info.productName -ne "Kugo Music Converter") {
 
 Assert-Command "go"
 Assert-Command "node"
-Assert-Command "wails"
+$wailsCommand = Get-Command "wails" -ErrorAction SilentlyContinue
+if ($null -eq $wailsCommand) {
+    $goPath = (& go env GOPATH | Select-Object -First 1).Trim()
+    Assert-LastExitCode "读取 GOPATH"
+    $wailsFallback = Join-Path $goPath "bin\wails.exe"
+    if (Test-Path -LiteralPath $wailsFallback -PathType Leaf) {
+        $wailsCommand = Get-Command $wailsFallback
+    }
+}
+if ($null -eq $wailsCommand) {
+    throw "缺少发布工具：wails（期望 v2.14.0）"
+}
+$wailsExecutable = $wailsCommand.Source
+$wailsVersionOutput = (& $wailsExecutable version 2>&1 | Out-String).Trim()
+Assert-LastExitCode "Wails CLI 版本检查"
+if ($wailsVersionOutput -notmatch 'v2\.14\.0') {
+    throw "Wails CLI 版本不匹配：期望 v2.14.0，实际 $wailsVersionOutput"
+}
 Assert-Command "expand.exe"
 Assert-Command "makensis"
 
@@ -188,13 +206,13 @@ $desktopUserText = @(
     (Get-Content -LiteralPath (Join-Path $backendDir "frontend\src\index.html") -Raw -Encoding UTF8),
     (Get-Content -LiteralPath (Join-Path $backendDir "frontend\src\main.js") -Raw -Encoding UTF8)
 ) -join "`n"
-foreach ($legacyWording in @("上传", "localhost", "start.hta", "start.bat", "本地服务")) {
+foreach ($legacyWording in @("localhost", "start.hta", "start.bat", "本地服务")) {
     if ($desktopUserText.Contains($legacyWording)) {
         throw "桌面界面仍包含旧链路表述：$legacyWording"
     }
 }
-node --test (Join-Path $projectRoot "tests\frontend\queue.test.mjs")
-Assert-LastExitCode "桌面前端队列测试"
+node --test (Join-Path $projectRoot "tests\frontend\queue.test.mjs") (Join-Path $projectRoot "tests\frontend\desktop-qmc.test.mjs")
+Assert-LastExitCode "桌面前端测试"
 
 New-Item -ItemType Directory -Path $outputDirectoryPath -Force | Out-Null
 foreach ($path in @(
@@ -229,7 +247,7 @@ try {
     }
     $ldflags = "-s -w -X main.version=$version -X main.buildDate=$buildDate -X main.commitHash=$commitHash"
 
-    wails build -clean -trimpath -platform windows/amd64 -webview2 download -tags "runtimebundle,release" -nsis -o $standardArtifactName -ldflags $ldflags
+    & $wailsExecutable build -clean -trimpath -platform windows/amd64 -webview2 download -tags "runtimebundle,release" -nsis -o $standardArtifactName -ldflags $ldflags
     Assert-LastExitCode "Wails Windows amd64 标准版构建"
     $standardWailsOutput = Join-Path $backendDir "build\bin\$standardArtifactName"
     if (-not (Test-Path -LiteralPath $standardWailsOutput -PathType Leaf)) {
@@ -242,7 +260,7 @@ try {
     }
     Copy-Item -LiteralPath $standardWailsInstaller -Destination $standardInstallerPath -Force
 
-    wails build -clean -trimpath -platform windows/amd64 -webview2 error -tags "runtimebundle,webview2bundle,release" -nsis -o $webView2ArtifactName -ldflags $ldflags
+    & $wailsExecutable build -clean -trimpath -platform windows/amd64 -webview2 error -tags "runtimebundle,webview2bundle,release" -nsis -o $webView2ArtifactName -ldflags $ldflags
     Assert-LastExitCode "Wails Windows amd64 内置 WebView2 版构建"
     $webView2WailsOutput = Join-Path $backendDir "build\bin\$webView2ArtifactName"
     if (-not (Test-Path -LiteralPath $webView2WailsOutput -PathType Leaf)) {
@@ -280,7 +298,7 @@ if (($webView2File.Length - $standardFile.Length) -lt 250MB) {
 foreach ($artifactPath in @($standardArtifactPath, $webView2ArtifactPath, $standardInstallerPath, $webView2InstallerPath)) {
     $signature = Get-AuthenticodeSignature -LiteralPath $artifactPath
     if ($signature.Status -ne [System.Management.Automation.SignatureStatus]::NotSigned) {
-        throw "v0.6.0 产物应明确保持未签名，实际状态：$($signature.Status)"
+        throw "$version 产物应保持未签名，实际状态：$($signature.Status)"
     }
     $artifactName = Split-Path -Leaf $artifactPath
     $artifactHash = (Get-FileHash -LiteralPath $artifactPath -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -293,7 +311,7 @@ $metadata = [ordered]@{
     architecture = "windows-amd64"
     commit = $commitHash
     buildDateUtc = $buildDate
-    signatureStage = "unsigned-v0.6.0-release"
+    signatureStage = "unsigned-release"
     ffmpeg = [ordered]@{
         version = [string]$ffmpegVersion
         sha256 = $ffmpegSourceHash
@@ -332,9 +350,9 @@ $metadata = [ordered]@{
 $metadataPath = Join-Path $outputDirectoryPath "build-metadata.json"
 $metadata | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $metadataPath -Encoding utf8NoBOM
 
-Write-Host "v0.6.0 发布资产已生成："
+Write-Host "$version 发布资产已生成："
 Write-Host "  标准版：$standardArtifactPath"
 Write-Host "  内置 WebView2 版：$webView2ArtifactPath"
 Write-Host "  标准版安装器：$standardInstallerPath"
 Write-Host "  内置 WebView2 版安装器：$webView2InstallerPath"
-Write-Host "两个便携 EXE 与两个按用户安装器均内嵌 FFmpeg，并按 v0.6.0 决策保持未签名；SHA-256 已生成。"
+Write-Host "两个便携 EXE 与两个按用户安装器均内嵌 FFmpeg，并按 $version 当前发布策略保持未签名；SHA-256 已生成。"

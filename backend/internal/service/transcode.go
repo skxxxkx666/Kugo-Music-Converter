@@ -172,7 +172,7 @@ func appendFFmpegOutputArgs(args []string, outputPath, outputFormat string, mp3Q
 	case "flac":
 		return append(args, "-c:a", "flac", outputPath)
 	default:
-		return append(args, "-q:a", fmt.Sprintf("%d", NormalizeMP3Quality(mp3Quality)), outputPath)
+		return append(args, "-c:a", "libmp3lame", "-q:a", fmt.Sprintf("%d", NormalizeMP3Quality(mp3Quality)), outputPath)
 	}
 }
 
@@ -250,6 +250,27 @@ func transcodeFileOnce(ctx context.Context, ffmpegBin, inputPath, outputPath, ou
 		return stderr, fmt.Errorf("%w: ffmpeg output missing", ErrTranscodeProcess)
 	}
 	return stderr, nil
+}
+
+func ValidateAudioFileStrict(ctx context.Context, ffmpegBin, inputPath string) error {
+	args := []string{
+		"-hide_banner",
+		"-loglevel", "error",
+		"-xerror",
+		"-nostdin",
+		"-threads", "1",
+		"-i", inputPath,
+		"-map", "0:a:0",
+		"-f", "null",
+		"-",
+	}
+	_, err := runFFmpeg(ctx, ffmpegBin, args, nil)
+	return err
+}
+
+func RepairFLACFile(ctx context.Context, ffmpegBin, inputPath, outputPath string) error {
+	_, err := transcodeFileOnce(ctx, ffmpegBin, inputPath, outputPath, "flac", 0, true)
+	return err
 }
 
 func TranscodeToFormat(ctx context.Context, ffmpegBin, inputPath, outputPath, outputFormat string, mp3Quality int) error {

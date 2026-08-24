@@ -12,6 +12,18 @@ import (
 	"unicode/utf16"
 )
 
+func TestQQMusicKnownDirectoriesPreferVipSongsDownload(t *testing.T) {
+	musicRoot := filepath.Join(t.TempDir(), "Music")
+	directories := qqMusicKnownDirectories([]string{musicRoot})
+	if len(directories) != 4 {
+		t.Fatalf("QQ Music directory count = %d, want 4", len(directories))
+	}
+	want := filepath.Join(musicRoot, "VipSongsDownload")
+	if !strings.EqualFold(directories[0].Path, want) || !directories[0].Recursive {
+		t.Fatalf("first QQ Music directory = %#v, want recursive %q", directories[0], want)
+	}
+}
+
 func TestFindLocalMusicLive(t *testing.T) {
 	if os.Getenv("KUGO_TEST_LOCAL_MUSIC") != "1" {
 		t.Skip("set KUGO_TEST_LOCAL_MUSIC=1 to scan configured local music folders")
@@ -35,11 +47,27 @@ func TestFindLocalMusicLive(t *testing.T) {
 	if expectedDir == "" {
 		return
 	}
-	foundPaths := make(map[string]struct{}, total)
+	foundPaths := make(map[string]struct{})
+	qqFiles := 0
+	qqMFLAC := 0
+	qqMGG := 0
 	for _, group := range result.Groups {
+		if group.ID != "qq" {
+			continue
+		}
 		for _, file := range group.Files {
 			foundPaths[normalizeDesktopPath(file.Path)] = struct{}{}
+			qqFiles++
+			switch strings.ToLower(filepath.Ext(file.Name)) {
+			case ".mflac":
+				qqMFLAC++
+			case ".mgg":
+				qqMGG++
+			}
 		}
+	}
+	if qqFiles == 0 {
+		t.Fatal("FindLocalMusic() returned no QQ Music group files")
 	}
 	expected := 0
 	missed := make([]string, 0)
@@ -61,7 +89,7 @@ func TestFindLocalMusicLive(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("WalkDir(%q) error = %v", expectedDir, err)
 	}
-	t.Logf("expected=%d discovered=%d missed=%d", expected, expected-len(missed), len(missed))
+	t.Logf("expected=%d discovered=%d missed=%d qqFiles=%d mflac=%d mgg=%d", expected, expected-len(missed), len(missed), qqFiles, qqMFLAC, qqMGG)
 	if len(missed) > 0 {
 		t.Fatalf("FindLocalMusic() missed configured samples: %v", missed)
 	}

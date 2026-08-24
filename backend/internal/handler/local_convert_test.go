@@ -126,6 +126,19 @@ func TestValidateLocalConversionRequiresRuntime(t *testing.T) {
 	}
 }
 
+func realTestOutputDir(t *testing.T) string {
+	t.Helper()
+	outputDir := strings.TrimSpace(os.Getenv("KUGO_TEST_OUTPUT_DIR"))
+	if outputDir == "" {
+		return t.TempDir()
+	}
+	outputDir = filepath.Clean(outputDir)
+	if err := os.MkdirAll(outputDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll(KUGO_TEST_OUTPUT_DIR) error = %v", err)
+	}
+	return outputDir
+}
+
 func TestConvertLocalPathsRealFile(t *testing.T) {
 	inputPath := os.Getenv("KUGO_TEST_INPUT")
 	ffmpegPath := os.Getenv("KUGO_TEST_FFMPEG")
@@ -133,12 +146,12 @@ func TestConvertLocalPathsRealFile(t *testing.T) {
 		t.Skip("set KUGO_TEST_INPUT and KUGO_TEST_FFMPEG to run the real-file integration test")
 	}
 
-	outputDir := t.TempDir()
+	outputDir := realTestOutputDir(t)
 	cfg := config.DefaultConfig()
 	cfg.FFmpegBin = ffmpegPath
 	cfg.DefaultOutput = outputDir
 	cfg.Concurrency = 1
-	h := NewConvertHandler(cfg, "test")
+	h := NewDesktopConvertHandler(cfg, "test")
 	outputFormat := strings.TrimSpace(os.Getenv("KUGO_TEST_OUTPUT_FORMAT"))
 	if outputFormat == "" {
 		outputFormat = "copy"
@@ -197,7 +210,7 @@ func TestConvertLocalPathsRealFolder(t *testing.T) {
 		if walkErr != nil {
 			return walkErr
 		}
-		if entry.IsDir() || !entry.Type().IsRegular() || !containsInputExt(entry.Name()) {
+		if entry.IsDir() || !entry.Type().IsRegular() || !(&ConvertHandler{supportsModernQMC: true}).containsLocalInputExt(entry.Name()) {
 			return nil
 		}
 		info, infoErr := entry.Info()
@@ -227,12 +240,12 @@ func TestConvertLocalPathsRealFolder(t *testing.T) {
 		}
 	}
 
-	outputDir := t.TempDir()
+	outputDir := realTestOutputDir(t)
 	cfg := config.DefaultConfig()
 	cfg.FFmpegBin = ffmpegPath
 	cfg.DefaultOutput = outputDir
 	cfg.Concurrency = concurrency
-	h := NewConvertHandler(cfg, "test")
+	h := NewDesktopConvertHandler(cfg, "test")
 	effectiveConcurrency := normalizeConcurrency(concurrency, cfg.Concurrency)
 
 	started := time.Now()

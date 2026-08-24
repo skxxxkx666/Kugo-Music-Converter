@@ -58,6 +58,21 @@ func findLocalMusic(ctx context.Context, sources []musicSearchSource, maxFiles i
 	}
 
 	result := FindLocalMusicResult{Groups: make([]LocalMusicGroup, 0, len(sources))}
+	groups := make(map[string]*LocalMusicGroup, len(sources))
+	groupOrder := make([]string, 0, len(sources))
+	for _, source := range sources {
+		if _, exists := groups[source.ID]; exists {
+			continue
+		}
+		groups[source.ID] = &LocalMusicGroup{
+			ID:      source.ID,
+			Name:    source.Name,
+			Icon:    source.Icon,
+			IconImg: source.IconImg,
+			Files:   make([]SelectedFile, 0),
+		}
+		groupOrder = append(groupOrder, source.ID)
+	}
 	seenFiles := make(map[string]struct{})
 	remaining := maxFiles
 
@@ -67,13 +82,7 @@ func findLocalMusic(ctx context.Context, sources []musicSearchSource, maxFiles i
 			break
 		}
 
-		group := LocalMusicGroup{
-			ID:      source.ID,
-			Name:    source.Name,
-			Icon:    source.Icon,
-			IconImg: source.IconImg,
-			Files:   make([]SelectedFile, 0),
-		}
+		group := groups[source.ID]
 		for _, directory := range normalizeMusicSearchDirectories(source.Directories) {
 			if ctx.Err() != nil || remaining <= 0 {
 				result.Truncated = true
@@ -96,8 +105,15 @@ func findLocalMusic(ctx context.Context, sources []musicSearchSource, maxFiles i
 				if _, exists := seenFiles[key]; exists {
 					continue
 				}
+				targetGroup := group
+				if classifiedGroup := groups[musicSourceIDForFile(file.Name)]; classifiedGroup != nil {
+					targetGroup = classifiedGroup
+				}
+				if targetGroup == nil {
+					continue
+				}
 				seenFiles[key] = struct{}{}
-				group.Files = append(group.Files, SelectedFile{
+				targetGroup.Files = append(targetGroup.Files, SelectedFile{
 					Path: file.FullPath,
 					Name: file.Name,
 					Size: file.Size,
@@ -119,18 +135,21 @@ func findLocalMusic(ctx context.Context, sources []musicSearchSource, maxFiles i
 				break
 			}
 		}
+		if result.Truncated {
+			break
+		}
+	}
 
-		if len(group.Files) > 0 {
+	for _, groupID := range groupOrder {
+		group := groups[groupID]
+		if group != nil && len(group.Files) > 0 {
 			sort.Slice(group.Files, func(i, j int) bool {
 				if strings.EqualFold(group.Files[i].Name, group.Files[j].Name) {
 					return strings.ToLower(group.Files[i].Path) < strings.ToLower(group.Files[j].Path)
 				}
 				return strings.ToLower(group.Files[i].Name) < strings.ToLower(group.Files[j].Name)
 			})
-			result.Groups = append(result.Groups, group)
-		}
-		if result.Truncated {
-			break
+			result.Groups = append(result.Groups, *group)
 		}
 	}
 
@@ -144,6 +163,21 @@ func findLocalMusic(ctx context.Context, sources []musicSearchSource, maxFiles i
 	}
 
 	return result, nil
+}
+
+func musicSourceIDForFile(name string) string {
+	switch strings.ToLower(filepath.Ext(name)) {
+	case ".kgg", ".kgm", ".kgma", ".vpr":
+		return "kugou"
+	case ".ncm":
+		return "netease"
+	case ".kwm":
+		return "kuwo"
+	case ".mflac", ".mgg", ".qmc0", ".qmc2", ".qmc3", ".qmc4", ".qmc6", ".qmc8", ".qmcflac", ".qmcogg", ".tkm":
+		return "qq"
+	default:
+		return ""
+	}
 }
 
 func normalizeMusicSearchDirectories(directories []musicSearchDirectory) []musicSearchDirectory {

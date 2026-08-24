@@ -32,7 +32,7 @@
             <svg class="icon" aria-hidden="true"><use href="#i-refresh-cw" /></svg>
             <span class="btn-label">检查更新</span>
           </button>
-          <span id="versionBadge" class="version-badge">v0.6.0</span>
+          <span id="versionBadge" class="version-badge">v0.6.1</span>
           <span id="runtimeBadge" class="status-badge" data-state="checking">检查运行时</span>
           <button id="themeToggleButton" class="theme-toggle" type="button" aria-label="切换深浅色主题" aria-pressed="false">
             <svg class="icon icon-moon" aria-hidden="true"><use href="#i-moon" /></svg>
@@ -72,7 +72,7 @@
                 <svg class="icon" aria-hidden="true"><use href="#i-music" /></svg>
                 待转换队列
               </h2>
-              <p>选择或拖入酷狗、网易云、酷我或传统 QMC 加密音频，也可直接拖入文件夹。</p>
+              <p>选择或拖入酷狗、网易云、酷我、QQ 音乐或传统 QMC 加密音频，也可直接拖入文件夹。</p>
             </div>
             <div class="heading-actions">
               <button id="clearFilesButton" class="button button-secondary" type="button" hidden>
@@ -117,6 +117,8 @@
               <span>NCM</span>
               <span>KWM</span>
               <span>QMC</span>
+              <span>MFLAC</span>
+              <span>MGG</span>
             </div>
           </div>
 
@@ -128,7 +130,7 @@
                   <svg class="icon" aria-hidden="true"><use href="#i-foldersearch" /></svg>
                   查找本机音乐
                 </h2>
-                <p id="findMusicHelp" class="field-help">检测常见音乐软件的默认下载目录，勾选后可加入队列。</p>
+                <p id="findMusicHelp" class="field-help">检测常见音乐软件的默认下载目录；结果不会自动加入队列，勾选后再加入。</p>
               </div>
               <div class="heading-actions">
                 <button id="findMusicCollapseButton" class="button button-secondary button-compact find-music-collapse" type="button" aria-expanded="true" aria-label="折叠查找结果">
@@ -142,7 +144,7 @@
             </div>
 
             <div id="findMusicStatus" class="find-music-status" role="status" aria-live="polite">
-              <p>点击"查找本机音乐"开始检测。</p>
+              <p>点击“查找本机音乐”开始检测。</p>
             </div>
             <p id="findMusicError" class="inline-error" role="alert" hidden></p>
 
@@ -236,19 +238,19 @@
           <div class="settings-fields">
           <label class="field-label" for="formatSelect">输出格式</label>
           <select id="formatSelect" class="field-control">
-            <option value="mp3">MP3（推荐）</option>
-            <option value="flac">FLAC</option>
-            <option value="wav">WAV</option>
-            <option value="copy">保持原格式</option>
+            <option value="mp3">MP3（兼容性优先）</option>
+            <option value="flac">FLAC（无损）</option>
+            <option value="wav">WAV（未压缩）</option>
+            <option value="copy">原格式（不重新编码）</option>
           </select>
 
           <div id="qualityField">
             <label class="field-label" for="qualitySelect">MP3 音质</label>
             <select id="qualitySelect" class="field-control">
-              <option value="0">最高质量</option>
-              <option value="2" selected>高质量（推荐）</option>
-              <option value="5">平衡</option>
-              <option value="7">较小文件</option>
+              <option value="0">V0 最高音质（约 245 kbps）</option>
+              <option value="2" selected>V2 高音质（约 190 kbps，默认）</option>
+              <option value="5">V5 标准（约 130 kbps）</option>
+              <option value="7">V7 节省空间（约 100 kbps）</option>
             </select>
           </div>
 
@@ -374,7 +376,7 @@
                 <span>文件类型</span>
                 <select id="advancedFilter" class="field-control">
                   <option value="">全部文件</option>
-                  <option value=".kgg,.kgm,.kgma,.vpr,.ncm,.kwm,.qmc0,.qmc2,.qmc3,.qmc4,.qmc6,.qmc8,.qmcflac,.qmcogg,.tkm">可转换的加密音频</option>
+                  <option value=".kgg,.kgm,.kgma,.vpr,.ncm,.kwm,.mflac,.mgg,.qmc0,.qmc2,.qmc3,.qmc4,.qmc6,.qmc8,.qmcflac,.qmcogg,.tkm">可转换的加密音频</option>
                   <option value=".mp3,.flac,.wav,.m4a,.aac,.ogg,.opus,.wma">常见音频</option>
                   <option value="custom">自定义扩展名</option>
                 </select>
@@ -463,7 +465,7 @@
         <div id="firstRunDesc" class="first-run-content">
           <p>本软件是<strong>免费开源项目</strong>，源代码公开于 GitHub。</p>
           <p>请勿在任何第三方平台<strong>付费购买</strong>本软件。如果您是通过付费渠道获得本软件，请立即向出售方申请退款。</p>
-          <p class="first-run-note">本软件仅供学习交流，音频解密与转换均在您本机完成，文件不会发送到网络。</p>
+          <p class="first-run-note">音频解密与转换均在本机完成，音频文件不会发送到网络。仅当转换不含内嵌密钥的新版 QQ 音乐 MFLAC/MGG 文件时，程序才会读取当前登录账号的必要授权信息，并向 QQ 音乐服务端兼容接口请求该文件的解密密钥；不会上传音频内容或本地文件路径。</p>
         </div>
         <div class="first-run-actions">
           <button id="firstRunConfirm" class="button button-convert" type="button">
