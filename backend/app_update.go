@@ -100,7 +100,7 @@ func (a *App) DownloadAndInstallUpdate(tagName string) (UpdateInstallResult, err
 
 	ctx, cancel := context.WithTimeout(a.ctx, updateDownloadTimeout)
 	defer cancel()
-	if err := downloadOfficialReleaseAsset(ctx, checksum, checksumPath, maxUpdateChecksumBytes); err != nil {
+	if err := downloadOfficialReleaseAssetFromGitHub(ctx, checksum, checksumPath, maxUpdateChecksumBytes); err != nil {
 		return UpdateInstallResult{}, fmt.Errorf("下载更新校验文件失败: %w", err)
 	}
 	checksumData, err := os.ReadFile(checksumPath)
@@ -217,18 +217,34 @@ func downloadOfficialReleaseAsset(ctx context.Context, asset handler.ReleaseAsse
 	return fmt.Errorf("GitHub 与备用下载地址均失败: %w", errors.Join(failures...))
 }
 
+func downloadOfficialReleaseAssetFromGitHub(ctx context.Context, asset handler.ReleaseAsset, destination string, maximumBytes int64) error {
+	// The checksum is the trust anchor for a proxied installer and must never use
+	// the same fallback proxy or follow a redirect to it.
+	if err := validateOfficialReleaseAssetURL(asset.DownloadURL); err != nil {
+		return err
+	}
+	if err := downloadReleaseAssetFromURL(ctx, asset.DownloadURL, destination, maximumBytes); err != nil {
+		return fmt.Errorf("GitHub: %w", err)
+	}
+	return nil
+}
+
 func downloadReleaseAssetFromURL(ctx context.Context, downloadURL string, destination string, maximumBytes int64) error {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
 	if err != nil {
 		return err
 	}
 	request.Header.Set("User-Agent", "Kugo-Music-Converter-Updater")
+	allowProxyRedirect := strings.EqualFold(request.URL.Hostname(), "gh.h233.eu.org")
 	client := &http.Client{
-		CheckRedirect: func(request *http.Request, via []*http.Request) error {
+		CheckRedirect: func(redirectRequest *http.Request, via []*http.Request) error {
 			if len(via) >= 10 {
 				return errors.New("更新下载重定向次数过多")
 			}
-			host := strings.ToLower(request.URL.Hostname())
+			host := strings.ToLower(redirectRequest.URL.Hostname())
+			if host == "gh.h233.eu.org" && !allowProxyRedirect {
+				return errors.New("官方更新下载不允许重定向到备用地址")
+			}
 			if host != "github.com" && host != "gh.h233.eu.org" && !strings.HasSuffix(host, ".githubusercontent.com") {
 				return errors.New("更新下载被重定向到未允许的地址")
 			}

@@ -3,8 +3,10 @@ package handler
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,6 +19,16 @@ import (
 type blockingQMCResolver struct {
 	started chan struct{}
 	release chan struct{}
+}
+
+type panickingQMCResolver struct{}
+
+func (panickingQMCResolver) Resolve(context.Context, qmckey.Resource) (string, error) {
+	panic("sensitive-auth-token")
+}
+
+func (panickingQMCResolver) ResolveBatch(context.Context, []qmckey.Resource) []qmckey.BatchResult {
+	panic("sensitive-auth-token")
 }
 
 func (r *blockingQMCResolver) Resolve(ctx context.Context, resource qmckey.Resource) (string, error) {
@@ -117,5 +129,31 @@ func TestExecuteBatchDoesNotBlockOfflineItemsOnQMCKeyFetch(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("batch did not finish after resolver release")
+	}
+}
+
+func TestQMCBatchFutureRecoversResolverPanic(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "modern.mgg")
+	data := append([]byte("encrypted"), testMusicExFooter(t, "ModernMID", "O8M000Modern.mgg")...)
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	handler := &ConvertHandler{qmcKeyResolver: panickingQMCResolver{}}
+	future := startQMCBatchFuture(context.Background(), handler, []service.BatchItem{{
+		Path: path,
+		Name: filepath.Base(path),
+	}})
+	_, err := future.wait(context.Background())
+	if err == nil {
+		t.Fatal("resolver panic was not returned as an error")
+	}
+	var appErr *AppError
+	if !errors.As(err, &appErr) || appErr.Code != ErrQMCKeyUnavailable {
+		t.Fatalf("panic error = %#v, want %s", err, ErrQMCKeyUnavailable)
+	}
+	if strings.Contains(err.Error(), "sensitive-auth-token") {
+		t.Fatalf("panic value leaked into error: %v", err)
 	}
 }
