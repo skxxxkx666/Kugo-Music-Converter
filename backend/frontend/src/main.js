@@ -368,7 +368,7 @@ function syncControls() {
     ? state.cancelRequested
       ? "正在停止当前任务，请等待已启动的文件处理结束。"
       : "转换期间可以取消；已生成的成功文件会保留。"
-    : disabledReason || "音频文件仅在本机处理；新版 MFLAC/MGG 每批会连接 QQ 音乐兼容端点取钥。";
+    : disabledReason || "音频文件仅在本机处理，不会上传；仅新版 QQ 音乐 MFLAC/MGG 需要在登录客户端后联网获取解密密钥。";
   elements.pickFilesButton.disabled = inputLocked;
   elements.scanFolderButton.disabled = inputLocked;
   elements.findMusicButton.disabled = inputLocked;

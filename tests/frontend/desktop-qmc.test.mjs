@@ -14,11 +14,18 @@ for (const extension of [".mflac", ".mgg"]) {
   });
 }
 
+test("desktop queue advertises QQ Music MFLAC and MGG support", () => {
+  assert.match(indexHTML, /酷我、QQ 音乐或传统 QMC/);
+  assert.match(indexHTML, /<span>MFLAC<\/span>/);
+  assert.match(indexHTML, /<span>MGG<\/span>/);
+});
+
 test("desktop privacy disclosure is versioned and explicit", () => {
   assert.match(mainJS, /kugo-desktop-disclaimer-v2/);
-  assert.match(mainJS, /QQ 音乐兼容端点取钥/);
-  assert.match(indexHTML, /只读权限扫描同用户 QQMusic\/qmbrowser 进程内存/);
-  assert.match(indexHTML, /未公开兼容端点/);
+  assert.match(mainJS, /仅新版 QQ 音乐 MFLAC\/MGG 需要在登录客户端后联网获取解密密钥/);
+  assert.match(indexHTML, /音频文件不会发送到网络/);
+  assert.match(indexHTML, /QQ 音乐服务端兼容接口/);
+  assert.match(indexHTML, /不会上传音频内容或本地文件路径/);
 });
 
 test("desktop static version matches v0.6.1", () => {

@@ -10,13 +10,13 @@
 
 [![Release](https://img.shields.io/github/v/release/skxxxkx666/Kugo-Music-Converter?label=Release&color=blue)](https://github.com/skxxxkx666/Kugo-Music-Converter/releases/latest)
 [![License](https://img.shields.io/github/license/skxxxkx666/Kugo-Music-Converter?label=License&color=green)](COPYING)
-[![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)](https://go.dev/)
+[![Go](https://img.shields.io/badge/Go-1.26.6-00ADD8?logo=go&logoColor=white)](https://go.dev/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011%20x64-0078D4?logo=windows&logoColor=white)](#系统要求)
 [![Downloads](https://img.shields.io/github/downloads/skxxxkx666/Kugo-Music-Converter/total?label=Downloads&color=orange)](https://github.com/skxxxkx666/Kugo-Music-Converter/releases)
 
 [下载最新版](https://github.com/skxxxkx666/Kugo-Music-Converter/releases/latest) · [功能特性](#功能特性) · [支持格式](#支持格式) · [常见问题](#常见问题)
 
-![Kugo Music Converter v0.6.0 界面预览](assets/screenshot.png)
+![Kugo Music Converter 桌面版界面预览](assets/screenshot.png)
 
 </div>
 
@@ -41,33 +41,34 @@
 
 | 版本 | 状态 | 使用方式 |
 |---|---|---|
-| v0.5.1 | 历史稳定版 | 解压 ZIP，使用 `start.hta` 或 `start.bat` |
-| v0.6.0 | 当前已发布稳定版 | 安装器（推荐）或便携 EXE |
-| v0.6.1 | 本分支待发布：新增 MFLAC/MGG | 预期安装器或便携 EXE |
+| v0.5.1 | 历史版本 | 解压 ZIP，使用 `start.hta` 或 `start.bat` |
+| v0.6.0 | 历史稳定版 | 安装器或便携 EXE |
+| v0.6.1 | 当前稳定版：新增 QQ 音乐 MFLAC/MGG | 安装器（推荐）或便携 EXE |
 
 > v0.6.0 与 v0.6.1 均保持未签名，并为每个正式 EXE 和安装器提供 SHA-256；v0.6.1 不接入 SignPath Foundation。
 
 ## 下载当前稳定版
 
-**当前已发布稳定版本：v0.6.0；本分支版本：v0.6.1（待发布）**
+**当前已发布稳定版本：v0.6.1**
 
 | 文件 | 平台 | 说明 |
 |---|---|---|
-| [Kugo-Music-Converter-v0.6.0-windows-amd64-setup.exe](https://github.com/skxxxkx666/Kugo-Music-Converter/releases/download/v0.6.0/Kugo-Music-Converter-v0.6.0-windows-amd64-setup.exe) | Windows x64 | 标准安装器，推荐大多数用户 |
-| [Kugo-Music-Converter-v0.6.0-windows-amd64.exe](https://github.com/skxxxkx666/Kugo-Music-Converter/releases/download/v0.6.0/Kugo-Music-Converter-v0.6.0-windows-amd64.exe) | Windows x64 | 标准便携版，使用系统 WebView2 |
-| [Kugo-Music-Converter-v0.6.0-windows-amd64-webview2-setup.exe](https://github.com/skxxxkx666/Kugo-Music-Converter/releases/download/v0.6.0/Kugo-Music-Converter-v0.6.0-windows-amd64-webview2-setup.exe) | Windows x64 | 内置 WebView2 安装器，体积较大 |
-| [Kugo-Music-Converter-v0.6.0-windows-amd64-webview2.exe](https://github.com/skxxxkx666/Kugo-Music-Converter/releases/download/v0.6.0/Kugo-Music-Converter-v0.6.0-windows-amd64-webview2.exe) | Windows x64 | 内置 WebView2 便携版，体积较大 |
-
-v0.6.1 预期发布资产名：
-
-```text
-Kugo-Music-Converter-v0.6.1-windows-amd64.exe
-Kugo-Music-Converter-v0.6.1-windows-amd64-webview2.exe
-Kugo-Music-Converter-v0.6.1-windows-amd64-setup.exe
-Kugo-Music-Converter-v0.6.1-windows-amd64-webview2-setup.exe
-```
+| [Kugo-Music-Converter-v0.6.1-windows-amd64-setup.exe](https://github.com/skxxxkx666/Kugo-Music-Converter/releases/download/v0.6.1/Kugo-Music-Converter-v0.6.1-windows-amd64-setup.exe) | Windows x64 | 标准安装器，推荐大多数用户 |
+| [Kugo-Music-Converter-v0.6.1-windows-amd64.exe](https://github.com/skxxxkx666/Kugo-Music-Converter/releases/download/v0.6.1/Kugo-Music-Converter-v0.6.1-windows-amd64.exe) | Windows x64 | 标准便携版，使用系统 WebView2 |
+| [Kugo-Music-Converter-v0.6.1-windows-amd64-webview2-setup.exe](https://github.com/skxxxkx666/Kugo-Music-Converter/releases/download/v0.6.1/Kugo-Music-Converter-v0.6.1-windows-amd64-webview2-setup.exe) | Windows x64 | 内置 WebView2 安装器，体积较大 |
+| [Kugo-Music-Converter-v0.6.1-windows-amd64-webview2.exe](https://github.com/skxxxkx666/Kugo-Music-Converter/releases/download/v0.6.1/Kugo-Music-Converter-v0.6.1-windows-amd64-webview2.exe) | Windows x64 | 内置 WebView2 便携版，体积较大 |
 
 更多已发布版本请前往 [GitHub Releases](https://github.com/skxxxkx666/Kugo-Music-Converter/releases)。
+
+## v0.6.1 新增
+
+在 v0.6.0 桌面版基础上：
+
+- 新增 QQ 音乐新版 `.mflac` / `.mgg`（`musicex`）解密；旧式内嵌 ekey 文件继续离线转换；
+- 修复混合批次隔离：KGG 数据库失败不再拖垮整批，QQ 音乐未登录或网络不可用时只影响对应文件；
+- 修复“查找本机音乐”对 QQ 音乐的发现与归类：优先识别 `VipSongsDownload`，排除未完成缓存；
+- 优化大批量 KGG 解密性能，减少 MAP 计算与 RC4 临时分配；MP3 输出明确使用 `libmp3lame`；
+- 应用内更新优先从官方 GitHub Release 下载，直连失败时尝试备用转发，两条路径均强制校验 SHA-256。
 
 ## v0.6.0 做了什么
 
@@ -212,7 +213,7 @@ v0.6.0：
 - Windows 7 不在支持范围内；
 - 标准版需要 Microsoft Edge WebView2 Runtime，Windows 10/11 与新版 Microsoft Edge 通常已经包含；
 - 内置 WebView2 版携带 Microsoft Fixed Version Runtime，适合无法安装运行时的受管控环境，但下载体积和首次启动缓存明显更大；
-- v0.6.0 正式构建强制内嵌 FFmpeg。
+- v0.6.0 起的当前正式构建均强制内嵌 FFmpeg。
 
 ## 历史版 v0.5.1 使用方法
 
@@ -228,7 +229,7 @@ v0.6.0：
 
 ### 前置条件
 
-- Go 1.26；
+- Go 1.26.6；
 - Wails CLI v2.14.0；
 - Windows WebView2 Runtime；
 - NSIS 3（用于生成按用户安装器）。
@@ -295,7 +296,7 @@ QQ 音乐未运行、未登录、会话过期、账号无资源权限或网络�
 - 音频文件不会发送到云端；
 - 只有无内嵌 ekey 的新版 MFLAC/MGG 会连接 QQ 音乐运营的未公开兼容端点，发送当前 QQ 音乐会话、账号标识、`media_mid` 和资源文件名以取得该资源的 ekey；
 - QQ 音乐会话和 ekey 只在本次转换的 Go 后端内存中使用，不进入 WebView、本机历史、配置、CSV 或诊断日志；
-- v0.6.0 转换进程不监听 TCP 端口；
+- 桌面版转换进程不监听 TCP 端口；
 - v0.5.1 只监听本机 `localhost`；
 - 检查更新会访问 GitHub Release API 或预设镜像；只有用户确认自动更新后，程序才会从官方 GitHub Release 下载安装器和 SHA-256。
 
@@ -306,21 +307,21 @@ QQ 音乐未运行、未登录、会话过期、账号无资源权限或网络�
 | MFLAC/MGG 转换提示未登录或会话过期 | 启动 QQ 音乐 PC 客户端并登录下载该文件的账号；新版 `musicex` 文件每个转换批次都需要联网取钥 |
 | MFLAC/MGG 提示账号无权取得密钥 | 确认当前账号仍具备该资源权限，必要时在 QQ 音乐客户端重新下载文件 |
 | KGG 转换失败 | 检查 `KGMusicV3.db`，在酷狗客户端播放歌曲后重新检测 |
-| v0.6.0 提示运行时未就绪 | 确认使用带 `runtimebundle` 的正式构建，而不是开发构建 |
+| 桌面版提示运行时未就绪 | 确认使用带 `runtimebundle` 的正式构建，而不是开发构建 |
 | 标准版无法显示窗口 | 安装 Microsoft Edge WebView2 Runtime，或改用内置 WebView2 版 |
 | 内置 WebView2 版第一次启动较慢 | EXE 约 339 MiB，首次启动需解压约 661 MiB 的 Fixed Runtime 缓存，后续会复用 |
-| v0.6.0 第一次启动稍慢 | 首次启动需要解压和校验内嵌 FFmpeg |
-| Windows 显示“未知发布者” | v0.6.0 与 v0.6.1 按决策未签名；仅从本仓库 Releases 下载并核对 SHA-256 |
-| v0.6.0 设置或历史消失 | WebView 本机应用数据被清理后，设置和历史会重置 |
+| 桌面版第一次启动稍慢 | 首次启动需要解压和校验内嵌 FFmpeg |
+| Windows 显示“未知发布者” | 当前正式资产按发布策略未签名；仅从本仓库 Releases 下载并核对 SHA-256 |
+| 桌面版设置或历史消失 | WebView 本机应用数据被清理后，设置和历史会重置 |
 | v0.5.1 页面无法连接后端 | 必须通过 `start.hta` 或 `start.bat` 启动完整链路 |
-| Windows 7 无法运行 | v0.6.0 不支持 Windows 7 |
+| Windows 7 无法运行 | v0.6.x 不支持 Windows 7 |
 
 ## 项目结构
 
 ```text
 Kugo-Music-Converter-Modpacks/
 ├── backend/
-│   ├── main.go                    # v0.6.0 Wails 桌面入口、单实例和关窗拦截
+│   ├── main.go                    # Wails 桌面入口、单实例和关窗拦截
 │   ├── app.go                     # 原生选择器、启动状态和运行时
 │   ├── app_conversion.go          # 桌面转换任务和事件
 │   ├── app_features.go            # 扫描、导出、试听和更新
@@ -328,18 +329,15 @@ Kugo-Music-Converter-Modpacks/
 │   ├── app_cache.go               # 应用运行时缓存统计与安全清理
 │   ├── app_music_discovery.go     # 查找本机音乐的分组、去重和受限扫描
 │   ├── app_windows_integration.go # 任务栏进度、完成通知、单实例（Windows）
-│   ├── frontend/src/              # v0.6.0 桌面前端（含内联图标精灵和 Inter 字体）
+│   ├── frontend/src/              # 桌面前端（含内联图标精灵和 Inter 字体）
 │   ├── internal/runtimebundle/    # FFmpeg 嵌入和缓存
 │   ├── internal/webview2bundle/   # Fixed WebView2 嵌入、解压、权限和缓存
 │   └── cmd/server/                # 迁移期保留的 v0.5.x HTTP 入口
 ├── public/                        # 迁移期保留的 v0.5.x 浏览器前端
-├── docs/README.md                 # 当前文档与审计索引
 ├── test-clean-install.ps1         # 干净测试机安装、自检、卸载门禁
 ├── test-sample-coverage.ps1       # 真实样本覆盖清点与转换回归门禁
 ├── start.hta / start.bat          # 迁移期保留的 v0.5.x 启动器
-├── V0.6.0-DESKTOP-MIGRATION.md    # v0.6.0 完整说明
-├── RELEASE-BODY-v0.6.0.md         # v0.6.0 Release 正文
-├── build-release.ps1              # v0.6.0 标准版 / 内置 WebView2 版构建与门禁
+├── build-release.ps1              # 标准版 / 内置 WebView2 版构建与门禁
 ├── verify-release.ps1             # PE 元数据、Authenticode、时间戳与哈希验证
 ├── SIGNING.md                      # v0.6.0 / v0.6.1 未签名决策
 ├── SIGNING-POLICY.md               # 未启用的未来签名政策草案
@@ -352,7 +350,7 @@ Kugo-Music-Converter-Modpacks/
 
 ## 当前分支状态
 
-v0.6.0 已发布。v0.6.1 分支已完成 MFLAC/MGG 实现与本机 QQ 音乐 22.52 真实样本验证；待完成正式四资产构建、干净机安装验收、提交、标签和 Release 发布。
+v0.6.1 是当前公开稳定版，已完成 MFLAC/MGG、QQ 音乐发现与归类修复、性能优化、更新下载兜底、四资产构建和两种安装器无残留验收。
 
 ## 许可证
 

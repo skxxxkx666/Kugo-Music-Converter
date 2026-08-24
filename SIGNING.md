@@ -1,30 +1,30 @@
 # Windows code signing
 
-## v0.6.0 decision
+## Release signing policy
 
-Kugo Music Converter v0.6.0 is intentionally released without Authenticode signing. v0.6.1 follows the same unsigned release model and does not apply to or integrate SignPath Foundation.
+Kugo Music Converter v0.6.0 and v0.6.1 are intentionally released without Authenticode signing. v0.6.1 does not apply to or integrate SignPath Foundation.
 
-The v0.6.0 release workflow therefore:
+Each release workflow:
 
-1. builds the standard and bundled-WebView2 Windows x64 executables;
+1. builds two Windows x64 portable executables and two per-user installers;
 2. verifies PE product and version metadata;
-3. requires both executables to report `NotSigned` rather than an invalid or unexpected signature;
-4. publishes a separate SHA-256 file for each executable;
+3. requires all four PE assets to report `NotSigned` rather than an invalid or unexpected signature;
+4. publishes a separate SHA-256 file for every portable executable and installer;
 5. stages the assets in a draft GitHub Release for maintainer review.
 
-Windows SmartScreen may display “Unknown publisher” for v0.6.0. Users should download only from this repository's GitHub Releases page and compare the published SHA-256 value before running the file.
+Windows SmartScreen may display “Unknown publisher”. Users should download only from this repository's GitHub Releases page and compare the published SHA-256 value before running the file.
 
-Local verification for v0.6.0:
+Local verification example:
 
 ```powershell
 ./verify-release.ps1 `
-  -ExecutablePath ./Kugo-Music-Converter-v0.6.0-windows-amd64.exe `
-  -ExpectedVersion v0.6.0
+  -ExecutablePath ./Kugo-Music-Converter-v0.6.1-windows-amd64.exe `
+  -ExpectedVersion v0.6.1
 ```
 
 ## v0.6.1 status
 
-SignPath was not enabled for this branch. v0.6.1 therefore continues the v0.6.0 unsigned + published SHA-256 model. This does not activate the proposed signing policy.
+SignPath is not enabled for v0.6.1. The release continues the unsigned + per-asset SHA-256 model. This does not activate the proposed signing policy.
 
 ## Optional future signing
 

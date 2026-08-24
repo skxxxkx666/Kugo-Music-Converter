@@ -4,7 +4,7 @@
 
 v0.6.1 延续 Wails v2 单 EXE 架构，并新增 MFLAC/MGG 与请求级 QQ 音乐取钥。桌面应用支持文件与文件夹拖放、队列管理、设置持久化、批量转换、进度与 ETA、任务取消、失败恢复、试听与定位、历史、目录扫描、诊断、显式自动更新和运行时缓存清理。Windows 原生集成包含单实例、任务栏进度、完成通知和关窗确认。
 
-当前已发布稳定版本为 v0.6.0，本分支版本为 v0.6.1（待发布）。v0.6.1 发布链继续生成标准版和内置 WebView2 版的便携 EXE 与按用户安装器，保持未签名并分别生成 SHA-256；本版本不接入 SignPath Foundation。
+当前已发布稳定版本为 v0.6.1。发布链生成标准版和内置 WebView2 版的便携 EXE 与按用户安装器，保持未签名并分别生成 SHA-256；本版本不接入 SignPath Foundation。
 
 ```powershell
 cd backend
@@ -21,7 +21,7 @@ cd ..
 
 ### 功能等价说明
 
-| v0.5.x 能力 | v0.6.0 桌面实现 |
+| v0.5.x 能力 | v0.6.1 桌面实现 |
 |---|---|
 | 浏览器拖放、目录递归解析 | Wails 原生文件/目录拖放与目录选择 |
 | 输出格式、音质、并发、输出目录、KGG 数据库 | 桌面设置区；偏好保存在 WebView 本机存储，数据库支持自动检测、手选和重新检测 |
@@ -38,7 +38,7 @@ cd ..
 
 ```
 backend/
-├── main.go                         # v0.6.0 Wails 桌面入口、单实例启动
+├── main.go                         # Wails 桌面入口、单实例启动
 ├── app.go                          # 原生绑定、启动状态与关窗拦截
 ├── app_conversion.go               # 转换任务、取消与 Wails 事件
 ├── app_features.go                 # 扫描、导出、试听、更新等桌面方法
@@ -49,7 +49,7 @@ backend/
 ├── app_windows_integration.go      # Windows 原生集成（任务栏进度、Toast 通知、单实例）
 ├── app_integration_other.go        # 非 Windows 平台的空实现
 ├── frontend/
-│   └── src/                        # v0.6.0 桌面界面
+│   └── src/                        # 桌面界面源码
 │       ├── index.html              # 语义结构与内联 SVG 图标精灵
 │       ├── main.css                # 设计令牌、双主题、组件与动效
 │       ├── main.js                 # 队列/设置/转换/历史/扫描/快捷键交互
@@ -81,7 +81,7 @@ backend/
 │   │   ├── scanner.go               # POST /api/scan-folders 目录扫描
 │   │   ├── preview.go               # GET /api/preview-file 试听服务
 │   │   ├── health.go                # GET /api/health 健康检查
-│   │   ├── local_convert.go         # v0.6.0 本地路径转换适配层
+│   │   ├── local_convert.go         # 桌面本地路径转换适配层
 │   │   ├── error.go                 # 统一错误码定义
 │   │   └── middleware.go            # 请求日志中间件
 │   ├── logger/
@@ -103,7 +103,7 @@ backend/
 └── config.example.yaml              # 示例配置文件
 ```
 
-## 2. v0.6.0 桌面开发与验证
+## 2. 桌面开发与验证
 
 ### 2.1 环境要求
 
@@ -132,10 +132,10 @@ cd ..
 
 输出位于 `dist/release/`：
 
-- `Kugo-Music-Converter-v0.6.0-windows-amd64.exe`：标准版，使用系统 WebView2（推荐）；
-- `Kugo-Music-Converter-v0.6.0-windows-amd64-webview2.exe`：内置 Fixed Runtime 版，体积较大。
-- `Kugo-Music-Converter-v0.6.0-windows-amd64-setup.exe`：标准版按用户安装器（推荐）；
-- `Kugo-Music-Converter-v0.6.0-windows-amd64-webview2-setup.exe`：内置 Fixed Runtime 按用户安装器。
+- `Kugo-Music-Converter-v0.6.1-windows-amd64.exe`：标准版，使用系统 WebView2（推荐）；
+- `Kugo-Music-Converter-v0.6.1-windows-amd64-webview2.exe`：内置 Fixed Runtime 版，体积较大；
+- `Kugo-Music-Converter-v0.6.1-windows-amd64-setup.exe`：标准版按用户安装器（推荐）；
+- `Kugo-Music-Converter-v0.6.1-windows-amd64-webview2-setup.exe`：内置 Fixed Runtime 按用户安装器。
 
 发布脚本强制为两个版本嵌入 FFmpeg，并只为第二个版本启用 `webview2bundle`。脚本验证 PE 元数据、两版体积差、未签名状态、SHA-256 和无界面运行时自检。安装器默认写入 `%LOCALAPPDATA%\Programs\Kugo Music Converter`，不要求管理员权限。`test-clean-install.ps1` 在干净测试机执行安装、自检、卸载和无残留门禁。v0.6.0 与 v0.6.1 均不经过 SignPath；`verify-release.ps1 -RequireSignature` 仅保留给可能启用签名的未来版本。
 
@@ -152,6 +152,8 @@ go vet ./...
 cd ..
 .\test-sample-coverage.ps1 -SampleDirectory C:\path\to\music
 ```
+
+当前 v0.6.1 候选已通过默认与 `runtimebundle,release` 标签测试、Go vet、前端语法与队列测试。QQ 音乐 22.52 的 26 个 MFLAC 和 16 个 MGG 真实样本均完成归类与转换验证；标准版和内置 WebView2 版安装器均通过安装、已安装程序自检、卸载和无残留检查。
 
 ### 2.5 桌面方法
 
@@ -190,7 +192,7 @@ cd ..
 
 ## 3. v0.5.x 旧 HTTP 服务（迁移期参考）
 
-以下内容描述 `cmd/server` 和 `../public/`。它们不属于 v0.6.0 正式桌面运行链路，当前仅用于对照、回归和回退。
+以下内容描述 `cmd/server` 和 `../public/`。它们不属于当前正式桌面运行链路，仅用于对照、回归和回退。
 
 ### 3.1 运行
 

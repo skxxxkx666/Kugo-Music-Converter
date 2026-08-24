@@ -1,6 +1,6 @@
 ﻿## Kugo Music Converter v0.6.1
 
-> 状态：MFLAC/MGG 功能、QQ 音乐 22.52 真实样本、核心质量门禁和四资产发布链验证已通过；最终干净机安装验收与发布待执行。
+> 状态：MFLAC/MGG 功能、QQ 音乐 22.52 的 42 个真实样本、核心质量门禁、四资产构建和两种安装器无残留验收均已通过；v0.6.1 已正式发布。
 
 - 新增旧式内嵌 ekey 与新版 `musicex` `.mflac/.mgg` 解密；
 - 修复 QQ 音乐未出现或被错误归入网易云音乐：在 Windows“音乐”已知文件夹下优先发现 `VipSongsDownload`，兼容目录重定向；当客户端目录重叠时按加密格式归入正确软件，并排除未完成的 `downloadproxyNew` 缓存；
@@ -14,13 +14,13 @@
 - 应用内更新安装器保持官方 GitHub 优先，直连失败时使用 `gh.h233.eu.org` 兜底，两条路径均强制校验配套 SHA-256；
 - v0.6.0 已发布资产保持不变，v0.6.1 使用独立版本、Release 正文和 GitHub Actions 工作流。
 
-完整分析与验证见 `docs/2026-08-21_reverse-qqmusic-mflac-mgg-report.md`。
+隐私与安全边界见 `PRIVACY.md` 和 `SECURITY.md`；面向用户的发布说明见 `RELEASE-BODY-v0.6.1.md`。
 
 ---
 
-## Kugo Music Converter v0.6.0
+## Kugo Music Converter v0.6.0（历史版本）
 
-> 状态：四资产发布链、全部真实样本回归及 Windows 10/11 最终验收完成。当前稳定版本为 v0.6.0。
+> 状态：四资产发布链、全部真实样本回归及 Windows 10/11 最终验收完成。当前稳定版本请以顶部最新版本段落和 GitHub Releases 为准。
 
 v0.6.0 是一次桌面化重大升级：项目从“HTA / BAT 启动本地 HTTP 服务并跳转浏览器”
 迁移为 Wails v2 单 EXE Windows 桌面应用。解密和转码继续在本机执行，用户文件不会发送到网络。
@@ -150,11 +150,7 @@ v0.6.0 是一次桌面化重大升级：项目从“HTA / BAT 启动本地 HTTP 
 - 旧 HTA / BAT / HTTP 链路暂时保留用于回退，不属于 v0.6.0 最终用户流程；
 - 正式发布前仅剩提交、标签、GitHub 工作流产物核对和 Release 发布操作。
 
-完整说明见：
-
-- `V0.6.0-DESKTOP-MIGRATION.md`
-- `RELEASE-BODY-v0.6.0.md`
-- `docs/PLAN-V0.6.0.md`
+发布正文见 `RELEASE-BODY-v0.6.0.md`。
 
 ---
 

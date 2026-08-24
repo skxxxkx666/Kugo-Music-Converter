@@ -45,17 +45,22 @@ Windows 10 / 11 x64；不支持 Windows 7。正式资产保持未签名，并提
 
 ### 隐私提示
 
-v0.6.1 将首次声明版本提升为 v2，升级用户会再次看到 modern QMC 网络取钥及只读会话访问说明。完整边界见 `PRIVACY.md`、`SECURITY.md` 和 `docs/2026-08-21_reverse-qqmusic-mflac-mgg-report.md`。
+v0.6.1 将首次声明版本提升为 v2，升级用户会再次看到 modern QMC 网络取钥及只读会话访问说明。完整边界见 `PRIVACY.md` 和 `SECURITY.md`。
 
-### 验证
+### 发布前验证
+
+<details>
+<summary>展开查看完整验证记录</summary>
 
 - QMC 容器、尾部、MAP/RC4 分块、有界流和错误分流单元测试通过；
 - GetEVkey 请求结构、敏感值不泄漏、超大响应、重定向、取消和批次时限测试通过；
 - mixed batch 离线优先、资源大小写、会话访问短路和 Windows amd64/386 构建边界测试通过；
 - 重叠客户端目录按文件格式归类，以及 GitHub 优先、备用地址兜底的更新下载顺序测试通过；
-- QQ 音乐 PC 22.52 真实 `musicex` MFLAC 解密为 FLAC；
-- QQ 音乐 PC 22.52 真实 `musicex` MGG 解密为 OGG；
+- QQ 音乐 PC 22.52 的 26 个真实 `musicex` MFLAC 与 16 个 MGG 均完成归类和转换验证，42/42 通过；
+- Windows 11 上标准版与内置 WebView2 版安装器均通过安装、已安装程序自检、卸载和无残留检查；
 - `go test ./...`、release build-tag、`go vet ./...`、前端语法和 Node 测试通过；
 - 开发与发布构建使用 Go 1.26.6 和 Wails CLI v2.14.0；应用运行库也按 `go.mod` 固定为 Wails v2.14.0。
+
+</details>
 
 真实音乐文件、UIN、会话和 ekey 未加入仓库或测试夹具。
