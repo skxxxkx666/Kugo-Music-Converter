@@ -15,19 +15,23 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
+	"kugo-music-converter/internal/algo/qmcfile"
 	"kugo-music-converter/internal/logger"
+	"kugo-music-converter/internal/qqmeta"
 	"kugo-music-converter/internal/service"
 )
 
 type convertRequest struct {
-	Items        []service.BatchItem
-	OutputDir    string
-	DBPath       string
-	OutputFormat string
-	MP3Quality   int
-	Concurrency  int
-	Cleanup      func()
+	Items         []service.BatchItem
+	OutputDir     string
+	DBPath        string
+	OutputFormat  string
+	MP3Quality    int
+	Concurrency   int
+	EmbedMetadata bool
+	Cleanup       func()
 }
 
 const (
@@ -292,19 +296,24 @@ func (h *ConvertHandler) parseConvertRequest(w http.ResponseWriter, r *http.Requ
 	mp3Quality := service.NormalizeMP3Quality(parseIntOrDefault(r.FormValue("mp3Quality"), 2))
 	concurrency := normalizeConcurrency(parseIntOrDefault(r.FormValue("concurrency"), h.cfg.Concurrency), h.cfg.Concurrency)
 	dbPath := strings.TrimSpace(r.FormValue("dbPath"))
+	embedMetadata := true
+	if raw := strings.ToLower(strings.TrimSpace(r.FormValue("embedMetadata"))); raw == "0" || raw == "false" || raw == "off" || raw == "no" {
+		embedMetadata = false
+	}
 
 	for i := range items {
 		items[i].Current = i + 1
 	}
 
 	return &convertRequest{
-		Items:        items,
-		OutputDir:    absOutputDir,
-		DBPath:       dbPath,
-		OutputFormat: outputFormat,
-		MP3Quality:   mp3Quality,
-		Concurrency:  concurrency,
-		Cleanup:      cleanup,
+		Items:         items,
+		OutputDir:     absOutputDir,
+		DBPath:        dbPath,
+		OutputFormat:  outputFormat,
+		MP3Quality:    mp3Quality,
+		Concurrency:   concurrency,
+		EmbedMetadata: embedMetadata,
+		Cleanup:       cleanup,
 	}, nil
 }
 
@@ -440,6 +449,7 @@ func (h *ConvertHandler) convertSingleItem(ctx context.Context, item service.Bat
 				return "", err
 			}
 		}
+		h.embedQQMusicMetadata(ctx, item.Path, outputPath, req)
 		if progress != nil {
 			progress("transcode", 100)
 		}
@@ -462,6 +472,7 @@ func (h *ConvertHandler) convertSingleItem(ctx context.Context, item service.Bat
 			removeQuiet(outputPath)
 			return "", NewAppError(ErrTranscodeFailed, "写入输出文件失败", err)
 		}
+		h.embedQQMusicMetadata(ctx, item.Path, outputPath, req)
 	} else {
 		if service.AudioExtToFFmpegFormat(rawAudioExt) == "" {
 			removeQuiet(outputPath)
@@ -492,6 +503,7 @@ func (h *ConvertHandler) convertSingleItem(ctx context.Context, item service.Bat
 				copyErr := service.CopyFile(tmpAudioPath, fallbackPath)
 				if copyErr == nil {
 					logger.Warnf("OGG CRC 容错转码失败，已降级为原始 OGG 输出: file=%s output=%s", item.Name, fallbackPath)
+					h.embedQQMusicMetadata(ctx, item.Path, fallbackPath, req)
 					if progress != nil {
 						progress("transcode", 100)
 					}
@@ -511,12 +523,57 @@ func (h *ConvertHandler) convertSingleItem(ctx context.Context, item service.Bat
 		if usedTolerance {
 			logger.Warnf("触发 OGG CRC 容错重试并成功: file=%s", item.Name)
 		}
+		h.embedQQMusicMetadata(ctx, item.Path, outputPath, req)
 	}
 
 	if progress != nil {
 		progress("transcode", 100)
 	}
 	return outputPath, nil
+}
+
+// embedQQMusicMetadata writes QQ Music tags and cover art into a finished
+// output file. Failures are logged and never abort the conversion itself.
+func (h *ConvertHandler) embedQQMusicMetadata(ctx context.Context, sourcePath, outputPath string, req *convertRequest) {
+	if h == nil || req == nil || !req.EmbedMetadata || h.qqmeta == nil {
+		return
+	}
+	if !isModernQMCExt(sourcePath) {
+		return
+	}
+	info, err := qmcfile.Inspect(sourcePath)
+	if err != nil || info.Kind != qmcfile.KindMusicEx || info.Metadata == nil {
+		return
+	}
+	songMID := strings.TrimSpace(info.Metadata.MediaMID)
+	if songMID == "" {
+		return
+	}
+
+	lookupCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+
+	track, err := h.qqmeta.Lookup(lookupCtx, songMID)
+	if err != nil {
+		logger.Warnf("QQ 音乐元数据查询失败: file=%s err=%v", filepath.Base(outputPath), err)
+		return
+	}
+	var cover []byte
+	if qqmeta.SupportsEmbeddedCover(filepath.Ext(outputPath)) {
+		data, coverErr := h.qqmeta.Cover(lookupCtx, track, 500)
+		if coverErr != nil {
+			logger.Warnf("QQ 音乐封面下载失败: file=%s err=%v", filepath.Base(outputPath), coverErr)
+		} else {
+			cover = data
+		}
+	}
+	applyCtx, applyCancel := context.WithTimeout(ctx, 60*time.Second)
+	defer applyCancel()
+	if err := h.qqmeta.Apply(applyCtx, h.ffmpegPath, outputPath, track, cover); err != nil {
+		logger.Warnf("QQ 音乐元数据写入失败: file=%s err=%v", filepath.Base(outputPath), err)
+		return
+	}
+	logger.Infof("已写入 QQ 音乐元数据: file=%s title=%s", filepath.Base(outputPath), track.Title)
 }
 
 func (h *ConvertHandler) executeBatch(ctx context.Context, req *convertRequest, stopFn func() bool, onEvent func(string, any)) service.BatchSummary {

@@ -28,6 +28,7 @@ const elements = {
   formatSelect: document.getElementById("formatSelect"),
   qualityField: document.getElementById("qualityField"),
   qualitySelect: document.getElementById("qualitySelect"),
+  embedMetadata: document.getElementById("embedMetadata"),
   concurrencySelect: document.getElementById("concurrencySelect"),
   outputDirectory: document.getElementById("outputDirectory"),
   pickOutputButton: document.getElementById("pickOutputButton"),
@@ -322,7 +323,8 @@ function savePreferences() {
       outputFormat: elements.formatSelect.value,
       mp3Quality: Number(elements.qualitySelect.value),
       concurrency: Number(elements.concurrencySelect.value) || state.defaultConcurrency,
-      dbPath: state.dbPath
+      dbPath: state.dbPath,
+      embedMetadata: elements.embedMetadata.checked
     }));
   } catch {
     recordDiagnostic("warning", "设置保存失败", "WebView 存储不可用");
@@ -381,6 +383,7 @@ function syncControls() {
   elements.pickDatabaseButton.disabled = inputLocked;
   elements.redetectDatabaseButton.disabled = inputLocked;
   elements.formatSelect.disabled = inputLocked;
+  elements.embedMetadata.disabled = inputLocked;
   elements.concurrencySelect.disabled = inputLocked;
   elements.checkUpdateButton.disabled = state.isCheckingUpdate;
   setButtonText(elements.checkUpdateButton, state.isCheckingUpdate ? "正在检查…" : "检查更新");
@@ -1191,6 +1194,7 @@ async function loadStartupState() {
     const savedQuality = String(Number(preferences.mp3Quality));
     if (Array.from(elements.qualitySelect.options).some((option) => option.value === savedQuality)) elements.qualitySelect.value = savedQuality;
     populateConcurrencySelect(state.maxConcurrency, preferences.concurrency || state.defaultConcurrency);
+    elements.embedMetadata.checked = preferences.embedMetadata !== false;
     if (preferences.dbPath && pathKey(preferences.dbPath) !== pathKey(state.dbPath)) {
       try {
         const restoredPath = await api.RestoreDatabaseFile(String(preferences.dbPath));
@@ -1244,7 +1248,8 @@ async function startConversion(targetFiles = state.files, preserveResults = fals
       dbPath: state.dbPath,
       outputFormat: elements.formatSelect.value,
       mp3Quality: Number(elements.qualitySelect.value),
-      concurrency: Number(elements.concurrencySelect.value) || state.defaultConcurrency
+      concurrency: Number(elements.concurrencySelect.value) || state.defaultConcurrency,
+      embedMetadata: elements.embedMetadata.checked
     });
     if (state.isBusy) {
       if (!state.activeTaskId) state.activeTaskId = taskId;
@@ -1400,7 +1405,7 @@ elements.redetectDatabaseButton.addEventListener("click", async () => {
   }
 });
 
-[elements.formatSelect, elements.qualitySelect, elements.concurrencySelect].forEach((control) => {
+[elements.formatSelect, elements.qualitySelect, elements.concurrencySelect, elements.embedMetadata].forEach((control) => {
   control.addEventListener("change", () => {
     savePreferences();
     syncControls();

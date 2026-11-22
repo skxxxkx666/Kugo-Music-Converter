@@ -11,12 +11,20 @@ import (
 )
 
 type LocalConversionRequest struct {
-	Paths        []string `json:"paths"`
-	OutputDir    string   `json:"outputDir"`
-	DBPath       string   `json:"dbPath,omitempty"`
-	OutputFormat string   `json:"outputFormat"`
-	MP3Quality   int      `json:"mp3Quality"`
-	Concurrency  int      `json:"concurrency"`
+	Paths         []string `json:"paths"`
+	OutputDir     string   `json:"outputDir"`
+	DBPath        string   `json:"dbPath,omitempty"`
+	OutputFormat  string   `json:"outputFormat"`
+	MP3Quality    int      `json:"mp3Quality"`
+	Concurrency   int      `json:"concurrency"`
+	EmbedMetadata *bool    `json:"embedMetadata,omitempty"`
+}
+
+func resolveEmbedMetadata(value *bool) bool {
+	if value == nil {
+		return true
+	}
+	return *value
 }
 
 func (h *ConvertHandler) DatabaseStatus() service.DBStatus {
@@ -137,12 +145,13 @@ func (h *ConvertHandler) buildLocalConvertRequest(input LocalConversionRequest) 
 	}
 
 	return &convertRequest{
-		Items:        items,
-		OutputDir:    outputDir,
-		DBPath:       strings.TrimSpace(input.DBPath),
-		OutputFormat: service.NormalizeOutputFormat(input.OutputFormat),
-		MP3Quality:   service.NormalizeMP3Quality(input.MP3Quality),
-		Concurrency:  normalizeConcurrency(input.Concurrency, h.cfg.Concurrency),
-		Cleanup:      func() {},
+		Items:         items,
+		OutputDir:     outputDir,
+		DBPath:        strings.TrimSpace(input.DBPath),
+		OutputFormat:  service.NormalizeOutputFormat(input.OutputFormat),
+		MP3Quality:    service.NormalizeMP3Quality(input.MP3Quality),
+		Concurrency:   normalizeConcurrency(input.Concurrency, h.cfg.Concurrency),
+		EmbedMetadata: resolveEmbedMetadata(input.EmbedMetadata),
+		Cleanup:       func() {},
 	}, nil
 }

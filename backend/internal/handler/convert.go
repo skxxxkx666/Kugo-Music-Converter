@@ -15,6 +15,7 @@ import (
 	"kugo-music-converter/internal/config"
 	"kugo-music-converter/internal/logger"
 	"kugo-music-converter/internal/qmckey"
+	"kugo-music-converter/internal/qqmeta"
 	"kugo-music-converter/internal/service"
 )
 
@@ -39,6 +40,7 @@ type ConvertHandler struct {
 	cfg               *config.Config
 	decryptService    *service.DecryptService
 	qmcKeyResolver    qmckey.BatchResolver
+	qqmeta            *qqmeta.Client
 	supportsModernQMC bool
 	startedAt         time.Time
 	version           string
@@ -78,6 +80,7 @@ func NewConvertHandler(cfg *config.Config, appVersion string) *ConvertHandler {
 	h := &ConvertHandler{
 		cfg:              cfg,
 		decryptService:   service.NewDecryptService(cfg),
+		qqmeta:           qqmeta.NewClient(),
 		startedAt:        time.Now(),
 		version:          version,
 		baseDir:          baseDir,

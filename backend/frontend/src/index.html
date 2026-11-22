@@ -254,6 +254,12 @@
             </select>
           </div>
 
+          <label class="checkbox-label" for="embedMetadata">
+            <input id="embedMetadata" type="checkbox" checked />
+            <span>写入 QQ 音乐标签与封面</span>
+          </label>
+          <p class="field-help">仅对 QQ 音乐 .mflac / .mgg 生效，需要联网查询曲目信息；关闭后输出不带标签。</p>
+
           <label class="field-label" for="concurrencySelect">并发处理数</label>
           <select id="concurrencySelect" class="field-control" aria-describedby="concurrencyHelp"></select>
           <p id="concurrencyHelp" class="field-help">较高并发会增加 CPU、内存和磁盘占用。</p>

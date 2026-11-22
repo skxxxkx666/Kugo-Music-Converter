@@ -20,12 +20,13 @@ const (
 )
 
 type ConversionRequest struct {
-	Paths        []string `json:"paths"`
-	OutputDir    string   `json:"outputDir"`
-	DBPath       string   `json:"dbPath,omitempty"`
-	OutputFormat string   `json:"outputFormat"`
-	MP3Quality   int      `json:"mp3Quality"`
-	Concurrency  int      `json:"concurrency"`
+	Paths         []string `json:"paths"`
+	OutputDir     string   `json:"outputDir"`
+	DBPath        string   `json:"dbPath,omitempty"`
+	OutputFormat  string   `json:"outputFormat"`
+	MP3Quality    int      `json:"mp3Quality"`
+	Concurrency   int      `json:"concurrency"`
+	EmbedMetadata *bool    `json:"embedMetadata,omitempty"`
 }
 
 type desktopConverter interface {
@@ -74,12 +75,13 @@ func (a *App) StartConversion(request ConversionRequest) (string, error) {
 		return "", errors.New("FFmpeg 运行时尚未就绪")
 	}
 	localRequest := handler.LocalConversionRequest{
-		Paths:        request.Paths,
-		OutputDir:    request.OutputDir,
-		DBPath:       request.DBPath,
-		OutputFormat: request.OutputFormat,
-		MP3Quality:   request.MP3Quality,
-		Concurrency:  request.Concurrency,
+		Paths:         request.Paths,
+		OutputDir:     request.OutputDir,
+		DBPath:        request.DBPath,
+		OutputFormat:  request.OutputFormat,
+		MP3Quality:    request.MP3Quality,
+		Concurrency:   request.Concurrency,
+		EmbedMetadata: request.EmbedMetadata,
 	}
 	if err := converter.ValidateLocalConversion(localRequest); err != nil {
 		return "", err
